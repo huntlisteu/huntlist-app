@@ -1,0 +1,13 @@
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  // React Compiler attivo (Next.js 16, stabile). Richiede babel-plugin-react-compiler.
+  reactCompiler: true,
+  // Fissa la root del workspace su questa cartella: evita che Next inferisca
+  // erroneamente la root da lockfile presenti in directory genitrici.
+  turbopack: {
+    root: import.meta.dirname,
+  },
+};
+
+export default nextConfig;

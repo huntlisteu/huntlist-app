@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Token brand Huntlist come CSS variables.
+ * Valori in CANALI RGB ("R G B") -> usati nel tailwind.config.ts come
+ * rgb(var(--token) / <alpha-value>) per supportare le opacity utilities.
+ * Light = default su :root; Dark = classe .dark (gestita da next-themes).
+ */
+@layer base {
+  :root {
+    /* superfici e testo */
+    --background: 250 250 247; /* Paper   #FAFAF7 */
+    --foreground: 26 26 24; /* Ink     #1A1A18 */
+    --card: 255 255 255;
+    --card-foreground: 26 26 24;
+
+    /* azioni */
+    --primary: 45 90 61; /* Forest     #2D5A3D */
+    --primary-foreground: 250 250 247; /* Paper */
+    --secondary: 61 122 84; /* Forest-mid #3D7A54 */
+    --secondary-foreground: 250 250 247;
+    --accent: 232 98 42; /* Ember      #E8622A */
+    --accent-foreground: 250 250 247;
+
+    /* neutri */
+    --muted: 237 236 229;
+    --muted-foreground: 90 92 86;
+    --border: 224 223 214;
+    --input: 224 223 214;
+    --ring: 45 90 61; /* Forest */
+
+    --destructive: 192 41 35;
+    --destructive-foreground: 250 250 247;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 17 18 16; /* bg      #111210 */
+    --foreground: 240 239 232; /* Snow    #F0EFE8 */
+    --card: 26 28 25; /* surface #1A1C19 */
+    --card-foreground: 240 239 232;
+
+    --primary: 93 202 165; /* Teal    #5DCAA5 */
+    --primary-foreground: 17 18 16;
+    --secondary: 61 122 84; /* Forest-mid #3D7A54 */
+    --secondary-foreground: 240 239 232;
+    --accent: 232 98 42; /* Ember   #E8622A */
+    --accent-foreground: 17 18 16;
+
+    --muted: 38 41 36;
+    --muted-foreground: 165 167 158;
+    --border: 42 45 40;
+    --input: 42 45 40;
+    --ring: 93 202 165; /* Teal */
+
+    --destructive: 232 90 80;
+    --destructive-foreground: 17 18 16;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading;
+  }
+}
