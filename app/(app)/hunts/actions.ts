@@ -74,10 +74,21 @@ export async function createHunt(
     return { error: "Impossibile creare la Hunt. Riprova." };
   }
 
-  const { error: cardsError } = await supabase
-    .from("hunt_cards")
-    .insert(toCardRows(huntId as string, cards));
+  const cardResults = await Promise.all(
+    cards.map((card) =>
+      supabase.rpc("create_hunt_card", {
+        p_hunt_id: huntId as string,
+        p_name: card.name,
+        p_set_name: card.set_name ?? null,
+        p_collector_number: card.collector_number ?? null,
+        p_desired_condition: card.desired_condition ?? null,
+        p_language: card.language ?? null,
+        p_quantity: card.quantity,
+      }),
+    ),
+  );
 
+  const cardsError = cardResults.find((r) => r.error)?.error ?? null;
   if (cardsError) {
     console.error("createHunt cardsError:", cardsError);
     await supabase.from("hunts").delete().eq("id", huntId);

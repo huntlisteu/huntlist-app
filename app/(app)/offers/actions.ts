@@ -90,14 +90,18 @@ export async function createOffer(
     return { error: "Questa Hunt non è più aperta." };
   }
 
-  // Insert offerta.
-  const { data: offer, error: offerError } = await supabase
-    .from("offers")
-    .insert({ hunt_id, seller_id: user.id, price_cents, shipping_cents, message })
-    .select("id")
-    .single<{ id: string }>();
+  // Insert offerta via RPC.
+  const { data: offerId, error: offerError } = await supabase.rpc(
+    "create_offer",
+    {
+      p_hunt_id: hunt_id,
+      p_price_cents: price_cents,
+      p_shipping_cents: shipping_cents,
+      p_message: message ?? null,
+    },
+  );
 
-  if (offerError || !offer) {
+  if (offerError || !offerId) {
     console.error("createOffer error:", offerError);
     // 23505 = unique_violation: un'offerta attiva per questo venditore esiste già.
     if (offerError?.code === "23505") {
@@ -106,26 +110,27 @@ export async function createOffer(
     return { error: "Impossibile creare l'offerta. Riprova." };
   }
 
-  // Insert snapshot carta per carta.
-  const itemRows = items.map((item) => ({
-    offer_id: offer.id,
-    hunt_card_id: item.hunt_card_id,
-    card_name: item.card_name,
-    condition: item.condition,
-    note: item.note,
-  }));
+  // Insert snapshot carta per carta via RPC.
+  const itemResults = await Promise.all(
+    items.map((item) =>
+      supabase.rpc("create_offer_item", {
+        p_offer_id: offerId as string,
+        p_hunt_card_id: item.hunt_card_id,
+        p_card_name: item.card_name,
+        p_condition: item.condition,
+        p_note: item.note ?? null,
+      }),
+    ),
+  );
 
-  const { error: itemsError } = await supabase
-    .from("offer_items")
-    .insert(itemRows);
-
+  const itemsError = itemResults.find((r) => r.error)?.error ?? null;
   if (itemsError) {
     console.error("createOffer items error:", itemsError);
-    // Compensazione: ritira l'offerta orfana (nessun delete grant sulle offers).
+    // Compensazione: ritira l'offerta orfana.
     await supabase
       .from("offers")
       .update({ status: "withdrawn" })
-      .eq("id", offer.id);
+      .eq("id", offerId);
     return { error: "Impossibile salvare le carte. Riprova." };
   }
 
@@ -136,7 +141,7 @@ export async function createOffer(
     const adminClient = createAdminClient();
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-    const offerUrl = `${siteUrl}/offers/${offer.id}`;
+    const offerUrl = `${siteUrl}/offers/${offerId as string}`;
 
     const [buyerAuthResult, sellerProfileResult, buyerProfileResult] =
       await Promise.all([
@@ -225,9 +230,10 @@ export async function sendMessage(
     return { error: "Non puoi inviare messaggi in questa conversazione." };
   }
 
-  const { error: msgError } = await supabase
-    .from("messages")
-    .insert({ offer_id, sender_id: user.id, body });
+  const { error: msgError } = await supabase.rpc("send_message", {
+    p_offer_id: offer_id,
+    p_body: body,
+  });
 
   if (msgError) {
     console.error("sendMessage error:", msgError);

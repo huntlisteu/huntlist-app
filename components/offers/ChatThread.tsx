@@ -66,6 +66,11 @@ export function ChatThread({
   }, [messages]);
 
   // Supabase Realtime: subscription INSERT su messages filtrata per offer_id.
+  // Cleanup con channel.unsubscribe() invece di supabase.removeChannel():
+  // removeChannel è asincrono e in React StrictMode (double-mount) il canale
+  // con lo stesso nome risulta ancora "in chiusura" al secondo mount, causando
+  // una subscription silenziosa fallita. unsubscribe() rimuove i listener
+  // locali immediatamente, evitando il conflitto.
   useEffect(() => {
     const supabase = createClient();
 
@@ -88,10 +93,14 @@ export function ChatThread({
           });
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) {
+          console.error("ChatThread Realtime error:", status, err);
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      channel.unsubscribe();
     };
   }, [offerId]);
 
