@@ -116,6 +116,72 @@ export async function getFeedHunts(opts?: {
 }
 
 // ---------------------------------------------------------------------------
+// Dashboard acquirente
+// ---------------------------------------------------------------------------
+
+const DASHBOARD_PAGE_SIZE = 10;
+
+export type DashboardHunt = {
+  id: string;
+  title: string;
+  game: Game;
+  status: HuntStatus;
+  created_at: string;
+  card_count: number;
+  offer_count: number;
+};
+
+type RawMyHunt = {
+  id: string;
+  title: string;
+  game: Game;
+  status: HuntStatus;
+  created_at: string;
+  hunt_cards: { id: string }[];
+  offers: { id: string }[];
+};
+
+/**
+ * Hunts pubblicate dall'utente, ordinate per data discendente.
+ * Restituisce la pagina richiesta (1-indexed) e un flag hasMore.
+ */
+export async function getMyHunts(
+  userId: string,
+  page: number = 1,
+): Promise<{ hunts: DashboardHunt[]; hasMore: boolean }> {
+  const supabase = await createClient();
+  const offset = (page - 1) * DASHBOARD_PAGE_SIZE;
+
+  const { data } = await supabase
+    .from("hunts")
+    .select(
+      "id, title, game, status, created_at, hunt_cards!hunt_id(id), offers!hunt_id(id)",
+    )
+    .eq("buyer_id", userId)
+    .order("created_at", { ascending: false })
+    // range è inclusivo; fetchiamo PAGE_SIZE + 1 per rilevare hasMore.
+    .range(offset, offset + DASHBOARD_PAGE_SIZE)
+    .returns<RawMyHunt[]>();
+
+  const rows = data ?? [];
+  const hasMore = rows.length > DASHBOARD_PAGE_SIZE;
+  const items = hasMore ? rows.slice(0, DASHBOARD_PAGE_SIZE) : rows;
+
+  return {
+    hunts: items.map((row) => ({
+      id: row.id,
+      title: row.title,
+      game: row.game,
+      status: row.status,
+      created_at: row.created_at,
+      card_count: Array.isArray(row.hunt_cards) ? row.hunt_cards.length : 0,
+      offer_count: Array.isArray(row.offers) ? row.offers.length : 0,
+    })),
+    hasMore,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Hunt di dettaglio
 // ---------------------------------------------------------------------------
 

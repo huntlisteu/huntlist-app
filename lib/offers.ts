@@ -86,6 +86,65 @@ export const getOffersForHunt = cache(
 );
 
 // ---------------------------------------------------------------------------
+// Dashboard venditore
+// ---------------------------------------------------------------------------
+
+const DASHBOARD_PAGE_SIZE = 10;
+
+export type DashboardOffer = {
+  id: string;
+  hunt_id: string;
+  hunt_title: string;
+  price_cents: number;
+  shipping_cents: number;
+  status: OfferStatus;
+  created_at: string;
+};
+
+type RawMyOffer = OfferRow & {
+  hunts: { title: string } | null;
+};
+
+/**
+ * Offerte inviate dall'utente come venditore, ordinate per data discendente.
+ * Restituisce la pagina richiesta (1-indexed) e un flag hasMore.
+ */
+export async function getMyOffers(
+  userId: string,
+  page: number = 1,
+): Promise<{ offers: DashboardOffer[]; hasMore: boolean }> {
+  const supabase = await createClient();
+  const offset = (page - 1) * DASHBOARD_PAGE_SIZE;
+
+  const { data } = await supabase
+    .from("offers")
+    .select(
+      `${OFFER_COLUMNS}, hunts!hunt_id(title)`,
+    )
+    .eq("seller_id", userId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + DASHBOARD_PAGE_SIZE)
+    .returns<RawMyOffer[]>();
+
+  const rows = data ?? [];
+  const hasMore = rows.length > DASHBOARD_PAGE_SIZE;
+  const items = hasMore ? rows.slice(0, DASHBOARD_PAGE_SIZE) : rows;
+
+  return {
+    offers: items.map((row) => ({
+      id: row.id,
+      hunt_id: row.hunt_id,
+      hunt_title: row.hunts?.title ?? "Hunt",
+      price_cents: row.price_cents,
+      shipping_cents: row.shipping_cents,
+      status: row.status,
+      created_at: row.created_at,
+    })),
+    hasMore,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Dettaglio offerta (per la pagina chat)
 // ---------------------------------------------------------------------------
 
