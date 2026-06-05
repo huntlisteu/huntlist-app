@@ -13,6 +13,7 @@ import {
   type HuntCardInput,
   type HuntFormState,
 } from "@/lib/validation/hunt";
+import { acceptOfferSchema } from "@/lib/validation/offer";
 
 /** Legge i campi comuni del form (title/description/game/cards-JSON). */
 function readHuntForm(formData: FormData) {
@@ -154,6 +155,59 @@ export async function updateHunt(
   revalidatePath("/dashboard");
   redirect(`/hunts/${id}`);
 }
+
+// ---------------------------------------------------------------------------
+// acceptOffer
+// ---------------------------------------------------------------------------
+
+/**
+ * Accetta un'offerta chiamando la RPC transazionale `accept_offer`.
+ * La RPC aggiorna atomicamente: offer → accepted, hunt → matched,
+ * altre offerte pending → rejected. Solo il proprietario della Hunt può farlo.
+ */
+export async function acceptOffer(formData: FormData): Promise<void> {
+  const user = await requireUser();
+
+  const parsed = acceptOfferSchema.safeParse({
+    offer_id: formData.get("offer_id"),
+  });
+  if (!parsed.success) redirect("/dashboard");
+
+  const { offer_id } = parsed.data;
+  const supabase = await createClient();
+
+  // Autorizzazione: recupera hunt_id e verifica che l'utente sia il buyer.
+  const { data: offer } = await supabase
+    .from("offers")
+    .select("hunt_id, status")
+    .eq("id", offer_id)
+    .maybeSingle<{ hunt_id: string; status: string }>();
+
+  if (!offer || offer.status !== "pending") redirect("/dashboard");
+
+  const { data: hunt } = await supabase
+    .from("hunts")
+    .select("buyer_id")
+    .eq("id", offer.hunt_id)
+    .maybeSingle<{ buyer_id: string }>();
+
+  if (!hunt || hunt.buyer_id !== user.id) redirect("/dashboard");
+
+  const { error } = await supabase.rpc("accept_offer", {
+    p_offer_id: offer_id,
+  });
+
+  if (error) {
+    console.error("acceptOffer rpc error:", error);
+  }
+
+  revalidatePath(`/hunts/${offer.hunt_id}`);
+  redirect(`/hunts/${offer.hunt_id}`);
+}
+
+// ---------------------------------------------------------------------------
+// closeHunt
+// ---------------------------------------------------------------------------
 
 /** Chiude una Hunt (open -> closed). Solo il proprietario. */
 export async function closeHunt(formData: FormData): Promise<void> {
