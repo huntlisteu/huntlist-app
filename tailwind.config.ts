@@ -44,21 +44,40 @@ const config: Config = {
         border: "rgb(var(--border) / <alpha-value>)",
         input: "rgb(var(--input) / <alpha-value>)",
         ring: "rgb(var(--ring) / <alpha-value>)",
-        // Palette brand fissa (hex esatti), non theme-aware: per swatch e accenti.
+        // Palette brand fissa (hex esatti), non theme-aware.
+        // Specchia i token definiti in globals.css.
         brand: {
-          forest: "#2D5A3D",
-          "forest-mid": "#3D7A54",
-          ember: "#E8622A",
-          paper: "#FAFAF7",
+          // light
+          paper: "#F2EDE3",
+          "paper-alt": "#EAE2D4",
           ink: "#1A1A18",
-          bg: "#111210",
+          "ink-mid": "#4A4A44",
+          "ink-light": "#8A8A82",
+          chartreuse: "#6DBE00",
+          "chartreuse-light": "#8AD800",
+          "chartreuse-hover": "#A8E040",
+          "chartreuse-pale": "#EEF7CC",
+          "chartreuse-mid": "#C8E87A",
+          "ember-deep": "#B84A1C",
+          "ember-light": "#D4602A",
+          "ember-pale": "#FAE8DC",
+          "ember-very-dark": "#6B2200",
+          // dark
+          void: "#111210",
           surface: "#1A1C19",
+          "brand-block": "#1A1A18",
+          char: "#3A3D38",
           snow: "#F0EFE8",
-          teal: "#5DCAA5",
+          fog: "#B0AFA8",
+          ash: "#5A5A54",
+          "chartreuse-glow": "#9ADE00",
+          "chartreuse-vivid": "#C2F000",
+          "ember-vivid": "#FF6B2C",
+          "ember-vivid-light": "#FF8A56",
         },
       },
       fontFamily: {
-        heading: ["var(--font-fraunces)", "Georgia", "serif"],
+        heading: ["var(--font-sora)", "system-ui", "sans-serif"],
         sans: ["var(--font-dm-sans)", "system-ui", "sans-serif"],
       },
       borderRadius: {

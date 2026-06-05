@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
+import { DM_Sans, Sora } from "next/font/google";
 
 import { ThemeProvider } from "@/components/brand/ThemeProvider";
 import "./globals.css";
 
-// Fraunces -> titoli; DM Sans -> corpo. Esposti come CSS variables e mappati
+// Sora (800) -> titoli; DM Sans -> corpo. Esposti come CSS variables e mappati
 // in tailwind.config.ts (font-heading / font-sans).
-const fraunces = Fraunces({
+const sora = Sora({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  weight: "800",
+  variable: "--font-sora",
   display: "swap",
 });
 
@@ -31,7 +32,7 @@ export default function RootLayout({
     <html
       lang="it"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${dmSans.variable}`}
+      className={`${sora.variable} ${dmSans.variable}`}
     >
       <body>
         <ThemeProvider

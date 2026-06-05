@@ -2,11 +2,13 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
+// Bordi: Ink #1A1A18 (light) / Char #3A3D38 (dark)
+// Sfondo: card token → #FAF7F2 (light) / --surface #1A1C19 (dark)
 function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-card text-card-foreground shadow-sm",
+        "rounded-[4px] border-2 border-[#1A1A18] bg-card text-card-foreground dark:border-[#3A3D38]",
         className,
       )}
       {...props}

@@ -51,7 +51,7 @@ export default async function AppLayout({
                 <Button asChild variant="ghost" size="sm">
                   <Link href="/login">Accedi</Link>
                 </Button>
-                <Button asChild size="sm">
+                <Button asChild variant="ember" size="sm">
                   <Link href="/signup">Registrati</Link>
                 </Button>
               </>
