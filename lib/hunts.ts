@@ -2,7 +2,7 @@ import { cache } from "react";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import type { CardCondition, Game, HuntStatus } from "@/lib/tcg";
+import { GAMES, type CardCondition, type Game, type HuntStatus } from "@/lib/tcg";
 
 export type HuntRow = {
   id: string;
@@ -26,6 +26,98 @@ export type HuntCardRow = {
   quantity: number;
   created_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Feed pubblico
+// ---------------------------------------------------------------------------
+
+export const FEED_PAGE_SIZE = 12;
+
+export type FeedHunt = {
+  id: string;
+  title: string;
+  game: Game;
+  created_at: string;
+  card_count: number;
+  buyer_username: string | null;
+  buyer_display_name: string;
+};
+
+export type FeedPage = {
+  hunts: FeedHunt[];
+  /** ISO timestamp dell'ultima Hunt della pagina; null se non ci sono altre pagine. */
+  nextCursor: string | null;
+};
+
+type RawFeedHunt = {
+  id: string;
+  title: string;
+  game: Game;
+  created_at: string;
+  profiles: { username: string | null; display_name: string } | null;
+  hunt_cards: { id: string }[];
+};
+
+/**
+ * Restituisce una pagina di Hunt aperte, ordinate per data di creazione
+ * discendente. Accessibile anche a utenti non autenticati (RLS permette
+ * la lettura delle Hunt open a tutti).
+ *
+ * @param opts.game    - Filtra per gioco (opzionale).
+ * @param opts.cursor  - ISO timestamp esclusivo (lt) per la paginazione cursor-based.
+ */
+export async function getFeedHunts(opts?: {
+  game?: Game;
+  cursor?: string;
+}): Promise<FeedPage> {
+  const supabase = await createClient();
+
+  // Valida il game in ingresso per non passare valori arbitrari alla query.
+  const game =
+    opts?.game && GAMES.includes(opts.game) ? opts.game : undefined;
+
+  let query = supabase
+    .from("hunts")
+    .select(
+      "id, title, game, created_at, profiles!buyer_id(username, display_name), hunt_cards!hunt_id(id)",
+    )
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    // Fetch PAGE_SIZE + 1 per sapere se esiste una pagina successiva.
+    .limit(FEED_PAGE_SIZE + 1);
+
+  if (game) {
+    query = query.eq("game", game);
+  }
+  if (opts?.cursor) {
+    query = query.lt("created_at", opts.cursor);
+  }
+
+  const { data } = await query.returns<RawFeedHunt[]>();
+  const rows = data ?? [];
+
+  const hasMore = rows.length > FEED_PAGE_SIZE;
+  const items = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
+
+  const hunts: FeedHunt[] = items.map((row) => ({
+    id: row.id,
+    title: row.title,
+    game: row.game,
+    created_at: row.created_at,
+    card_count: Array.isArray(row.hunt_cards) ? row.hunt_cards.length : 0,
+    buyer_username: row.profiles?.username ?? null,
+    buyer_display_name: row.profiles?.display_name ?? "Utente",
+  }));
+
+  return {
+    hunts,
+    nextCursor: hasMore ? items[items.length - 1].created_at : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hunt di dettaglio
+// ---------------------------------------------------------------------------
 
 const uuidSchema = z.string().uuid();
 

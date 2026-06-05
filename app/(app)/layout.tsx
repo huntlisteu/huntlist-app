@@ -24,6 +24,9 @@ export default async function AppLayout({
           </Link>
 
           <nav className="flex items-center gap-2 sm:gap-3">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/feed">Feed</Link>
+            </Button>
             {user ? (
               <>
                 <Button asChild variant="ghost" size="sm">
