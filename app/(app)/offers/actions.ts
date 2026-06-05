@@ -7,8 +7,10 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   createOfferSchema,
+  sendMessageSchema,
   withdrawOfferSchema,
   type OfferFormState,
+  type SendMessageState,
 } from "@/lib/validation/offer";
 
 // ---------------------------------------------------------------------------
@@ -127,6 +129,71 @@ export async function createOffer(
 
   revalidatePath(`/hunts/${hunt_id}`);
   redirect(`/hunts/${hunt_id}`);
+}
+
+// ---------------------------------------------------------------------------
+// withdrawOffer
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// sendMessage
+// ---------------------------------------------------------------------------
+
+/**
+ * Inserisce un messaggio nel thread dell'offerta. L'utente deve essere
+ * un partecipante (seller o buyer) e l'offerta deve essere aperta
+ * (pending / accepted). Non chiama revalidatePath: i messaggi arrivano
+ * al client via Supabase Realtime.
+ */
+export async function sendMessage(
+  formData: FormData,
+): Promise<SendMessageState> {
+  const user = await requireUser();
+
+  const parsed = sendMessageSchema.safeParse({
+    offer_id: formData.get("offer_id"),
+    body: String(formData.get("body") ?? "").trim(),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const { offer_id, body } = parsed.data;
+  const supabase = await createClient();
+
+  // Autorizzazione: partecipante e offerta aperta.
+  const { data: offer } = await supabase
+    .from("offers")
+    .select("seller_id, status, hunts!hunt_id(buyer_id)")
+    .eq("id", offer_id)
+    .maybeSingle<{
+      seller_id: string;
+      status: string;
+      hunts: { buyer_id: string } | null;
+    }>();
+
+  if (!offer) return { error: "Offerta non trovata." };
+
+  const buyerId = offer.hunts?.buyer_id;
+  const isParticipant =
+    user.id === offer.seller_id || user.id === buyerId;
+  if (!isParticipant) return { error: "Non sei autorizzato." };
+
+  if (!["pending", "accepted"].includes(offer.status)) {
+    return { error: "Non puoi inviare messaggi in questa conversazione." };
+  }
+
+  const { error: msgError } = await supabase
+    .from("messages")
+    .insert({ offer_id, sender_id: user.id, body });
+
+  if (msgError) {
+    console.error("sendMessage error:", msgError);
+    return { error: "Impossibile inviare il messaggio. Riprova." };
+  }
+
+  return {};
 }
 
 // ---------------------------------------------------------------------------

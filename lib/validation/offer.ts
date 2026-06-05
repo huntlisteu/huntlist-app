@@ -81,3 +81,13 @@ export const acceptOfferSchema = z.object({
 
 /** Stato restituito dalle Server Actions offerta a `useActionState`. */
 export type OfferFormState = { error?: string };
+
+export const sendMessageSchema = z.object({
+  offer_id: z.string().uuid("Offerta non valida"),
+  body: z
+    .string()
+    .min(1, "Il messaggio non può essere vuoto")
+    .max(2000, "Messaggio: massimo 2000 caratteri"),
+});
+
+export type SendMessageState = { error?: string };
