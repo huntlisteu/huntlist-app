@@ -15,12 +15,9 @@ export default async function HomePage() {
         <div className="flex justify-center">
           <Logo width={200} height={52} />
         </div>
-        <h1 className="font-heading text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-          Huntlist
-        </h1>
 
-        <p className="text-lg text-muted-foreground">
-          Pubblica le carte che cerchi, ricevi offerte dai venditori.
+        <p className="font-sans text-lg text-[#4A4A44] dark:text-[#B0AFA8]">
+          Pubblica le carte che cerchi. I venditori vengono da te.
         </p>
 
         <div className="flex flex-wrap justify-center gap-3">
