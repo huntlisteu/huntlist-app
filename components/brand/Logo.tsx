@@ -40,7 +40,7 @@ export function Logo({ width = 140, height = 36, className }: LogoProps) {
       height={height}
       priority
       className={className}
-      style={{ height: "auto", filter: shadow }}
+      style={{ filter: shadow }}
     />
   );
 }
