@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { getUser } from "@/lib/auth";
 
@@ -16,8 +17,8 @@ export default async function AuthLayout({
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link href="/" className="font-heading text-xl font-semibold">
-          Huntlist
+        <Link href="/" className="flex items-center">
+          <Logo width={160} height={42} />
         </Link>
         <ThemeToggle />
       </header>
