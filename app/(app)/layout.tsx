@@ -24,15 +24,16 @@ export default async function AppLayout({
           </Link>
 
           <nav className="flex items-center gap-2 sm:gap-3">
-            <Button asChild variant="ghost" size="sm">
+            {/* Feed: nascosto su mobile (<md), visibile da md in su */}
+            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
               <Link href="/feed">Feed</Link>
             </Button>
             {user ? (
               <>
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
                   <Link href="/dashboard">Dashboard</Link>
                 </Button>
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
                   <Link href="/hunts/new">Nuova Hunt</Link>
                 </Button>
                 <span className="hidden text-sm text-muted-foreground md:inline">
@@ -48,9 +49,11 @@ export default async function AppLayout({
             ) : (
               <>
                 <ThemeToggle />
-                <Button asChild variant="ghost" size="sm">
+                {/* Accedi: nascosto su mobile, visibile da md */}
+                <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
                   <Link href="/login">Accedi</Link>
                 </Button>
+                {/* Registrati: sempre visibile */}
                 <Button asChild variant="ember" size="sm">
                   <Link href="/signup">Registrati</Link>
                 </Button>

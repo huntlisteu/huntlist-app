@@ -97,6 +97,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: hidden; /* previene scroll orizzontale su mobile */
   }
   h1,
   h2,

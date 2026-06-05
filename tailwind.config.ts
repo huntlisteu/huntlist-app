@@ -10,7 +10,11 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: "1.5rem",
+      padding: {
+        DEFAULT: "1rem",   // px-4 su mobile
+        sm: "1.5rem",      // px-6 da 640px
+        lg: "2rem",        // px-8 da 1024px
+      },
       screens: { "2xl": "1280px" },
     },
     extend: {
