@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { signOut } from "@/app/(app)/actions";
+import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/brand/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { getUser } from "@/lib/auth";
@@ -16,11 +17,8 @@ export default async function AppLayout({
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="border-b border-border">
         <div className="container flex h-16 max-w-5xl items-center justify-between gap-4">
-          <Link
-            href={user ? "/dashboard" : "/"}
-            className="font-heading text-xl font-semibold"
-          >
-            Huntlist
+          <Link href={user ? "/dashboard" : "/"} className="flex items-center">
+            <Logo width={140} height={36} />
           </Link>
 
           <nav className="flex items-center gap-2 sm:gap-3">

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { getUser } from "@/lib/auth";
 
@@ -11,6 +12,9 @@ export default async function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
       <div className="max-w-md space-y-6">
+        <div className="flex justify-center">
+          <Logo width={200} height={52} />
+        </div>
         <h1 className="font-heading text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
           Huntlist
         </h1>
