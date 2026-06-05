@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
+import { sendNewOfferEmail } from "@/lib/email";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   createOfferSchema,
@@ -74,9 +76,9 @@ export async function createOffer(
   // messaggio di errore leggibile invece di un generico "row not found".
   const { data: hunt } = await supabase
     .from("hunts")
-    .select("buyer_id, status")
+    .select("buyer_id, status, title")
     .eq("id", hunt_id)
-    .maybeSingle<{ buyer_id: string; status: string }>();
+    .maybeSingle<{ buyer_id: string; status: string; title: string }>();
 
   if (!hunt) {
     return { error: "Hunt non trovata." };
@@ -125,6 +127,45 @@ export async function createOffer(
       .update({ status: "withdrawn" })
       .eq("id", offer.id);
     return { error: "Impossibile salvare le carte. Riprova." };
+  }
+
+  // ── Email di notifica all'acquirente ─────────────────────────────────────
+  // Fire-and-forget: attende il completamento ma non blocca il flusso in caso
+  // di errore (es. Resend non configurato, email non trovata).
+  try {
+    const adminClient = createAdminClient();
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const offerUrl = `${siteUrl}/offers/${offer.id}`;
+
+    const [buyerAuthResult, sellerProfileResult, buyerProfileResult] =
+      await Promise.all([
+        adminClient.auth.admin.getUserById(hunt.buyer_id),
+        supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", user.id)
+          .single<{ display_name: string }>(),
+        supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", hunt.buyer_id)
+          .single<{ display_name: string }>(),
+      ]);
+
+    const buyerEmail = buyerAuthResult.data.user?.email;
+    if (buyerEmail) {
+      await sendNewOfferEmail(
+        buyerEmail,
+        buyerProfileResult.data?.display_name ?? "Collezionista",
+        hunt.title,
+        sellerProfileResult.data?.display_name ?? "Un venditore",
+        offerUrl,
+      );
+    }
+  } catch (emailErr) {
+    // L'email è non-critica: logghiamo l'errore senza bloccare il redirect.
+    console.error("sendNewOfferEmail error:", emailErr);
   }
 
   revalidatePath(`/hunts/${hunt_id}`);
