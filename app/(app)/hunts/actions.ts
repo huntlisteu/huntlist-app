@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -57,13 +56,6 @@ export async function createHunt(
   const { title, description, game, cards } = parsed.data;
 
   const supabase = await createClient();
-  const cookieStore = await cookies();
-  console.log("cookies:", cookieStore.getAll().map((c) => c.name));
-  const { data: { session } } = await supabase.auth.getSession();
-  console.log("session:", session?.user?.id);
-  const { data: { user: supaUser }, error: userError } = await supabase.auth.getUser();
-  console.log("getUser result:", supaUser?.id, "error:", userError);
-  console.log("user in createHunt:", user?.id);
   const { data: huntId, error } = await supabase.rpc("create_hunt", {
     p_title: title,
     p_description: description ?? null,
