@@ -2,21 +2,33 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Proxy di Next.js 16 (ex "middleware"): rinfresca la sessione Supabase a ogni
- * richiesta, riscrivendo i cookie sia sulla request (per i Server Components a
- * valle) sia sulla response (per il browser).
- *
- * NB: chiama `supabase.auth.getUser()` per forzare il refresh del token; non ci
- * si fida della sola sessione nel cookie. Nello scaffold della Fase 1 non
- * protegge ancora alcuna rotta: la logica di redirect arriva in Fase 2.
+ * Proxy di Next.js 16: rinfresca la sessione Supabase e reindirizza a
+ * /onboarding gli utenti autenticati che non hanno ancora completato il profilo.
  */
+
+// Percorsi esclusi dal redirect di onboarding.
+const ONBOARDING_SKIP = [
+  "/onboarding",
+  "/login",
+  "/signup",
+  "/callback",
+  "/forgot-password",
+  "/update-password",
+  "/api",
+];
+
+function shouldSkipOnboarding(pathname: string): boolean {
+  return ONBOARDING_SKIP.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  // Senza variabili Supabase non c'e' nulla da rinfrescare: lascia passare.
   if (!url || !key) {
     return response;
   }
@@ -38,19 +50,28 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // Forza il refresh della sessione lato server di Auth.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user && !shouldSkipOnboarding(request.nextUrl.pathname)) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .single();
+
+    // Lascia passare se la query fallisce o restituisce null (fail-open).
+    if (profile && profile.onboarding_completed === false) {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
+    }
+  }
 
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Tutte le rotte tranne asset statici e file con estensione immagine:
-     * - _next/static, _next/image
-     * - favicon.ico e immagini comuni
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

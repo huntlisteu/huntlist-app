@@ -24,7 +24,7 @@ function FormFeedback({ state }: { state: AuthFormState }) {
   }
   if (state.message) {
     return (
-      <p className="text-sm font-medium text-secondary" role="status">
+      <p className="text-sm font-medium text-[#1A1A18] dark:text-[#F0EFE8]" role="status">
         {state.message}
       </p>
     );
@@ -66,6 +66,14 @@ export function LoginForm() {
         <SubmitButton className="w-full" pendingLabel="Accesso in corso…">
           Accedi
         </SubmitButton>
+        <p className="text-center text-sm text-muted-foreground">
+          <Link
+            href="/forgot-password"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Hai dimenticato la password?
+          </Link>
+        </p>
       </form>
 
       {/* Separatore */}

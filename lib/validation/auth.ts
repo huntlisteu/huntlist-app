@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { GAMES } from "@/lib/tcg";
+
 /**
  * Schemi Zod condivisi per i flussi di autenticazione.
  * Usati sia lato client (per i type) sia lato server (validazione nelle
@@ -46,10 +48,30 @@ export const usernameSchema = z.object({
     ),
 });
 
+// Schema per il flusso onboarding.
+export const completeOnboardingSchema = z.object({
+  username: z
+    .string({ message: "Username obbligatorio" })
+    .trim()
+    .min(3, "Lo username deve avere almeno 3 caratteri")
+    .max(20, "Lo username non può superare i 20 caratteri")
+    .regex(/^[a-zA-Z0-9_]+$/, "Solo lettere, numeri e underscore"),
+  preferred_games: z
+    .array(z.enum([...GAMES] as [string, ...string[]]))
+    .min(1, "Seleziona almeno un gioco"),
+  full_name: z
+    .string()
+    .trim()
+    .max(100, "Il nome non può superare i 100 caratteri")
+    .optional(),
+  avatar_url: z.string().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type MagicLinkInput = z.infer<typeof magicLinkSchema>;
 export type UsernameInput = z.infer<typeof usernameSchema>;
+export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;
 
 /** Stato condiviso restituito dalle Server Actions di auth a `useActionState`. */
 export type AuthFormState = {

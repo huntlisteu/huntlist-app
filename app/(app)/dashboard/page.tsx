@@ -236,7 +236,7 @@ export default async function DashboardPage({
             Dashboard
           </p>
           <h1 className="mt-1 font-heading text-3xl font-semibold sm:text-4xl">
-            Ciao, {profile.display_name}
+            Ciao, {profile.username ?? "Cacciatore"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             @{profile.username}

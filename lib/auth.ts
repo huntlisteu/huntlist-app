@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
+import type { Game } from "@/lib/tcg";
 
 /**
  * Profilo pubblico (sottoinsieme usato dall'app). Allineato a `public.profiles`.
@@ -15,6 +16,9 @@ export type Profile = {
   avatar_url: string | null;
   bio: string | null;
   country: string | null;
+  full_name: string | null;
+  preferred_games: Game[];
+  onboarding_completed: boolean;
 };
 
 /**
@@ -48,7 +52,7 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, bio, country")
+    .select("id, username, display_name, avatar_url, bio, country, full_name, preferred_games, onboarding_completed")
     .eq("id", user.id)
     .single<Profile>();
 

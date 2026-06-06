@@ -24,7 +24,7 @@ function FormFeedback({ state }: { state: AuthFormState }) {
   }
   if (state.message) {
     return (
-      <p className="text-sm font-medium text-secondary" role="status">
+      <p className="text-sm font-medium text-[#1A1A18] dark:text-[#F0EFE8]" role="status">
         {state.message}
       </p>
     );

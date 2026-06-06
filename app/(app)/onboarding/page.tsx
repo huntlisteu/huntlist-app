@@ -1,44 +1,31 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { OnboardingForm } from "@/components/auth/OnboardingForm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { getProfile, requireUser } from "@/lib/auth";
+import { OnboardingWizard } from "@/components/auth/OnboardingWizard";
+import { requireUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Scegli lo username · Huntlist",
+  title: "Benvenuto · Huntlist",
 };
 
 export default async function OnboardingPage() {
-  // Pagina privata: il layout (app) non redirige piu', quindi la guardia e' qui.
-  await requireUser();
-  const profile = await getProfile();
+  const user = await requireUser();
+  const supabase = await createClient();
 
-  // Username gia' scelto -> niente onboarding, vai in dashboard.
-  if (profile?.username) {
-    redirect("/dashboard");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("onboarding_completed")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.onboarding_completed) {
+    redirect("/feed");
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Scegli il tuo username</CardTitle>
-          <CardDescription>
-            Ci siamo quasi. Ti serve un username per pubblicare Hunt e fare
-            offerte.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <OnboardingForm />
-        </CardContent>
-      </Card>
+    <div className="flex min-h-[60vh] items-center justify-center py-12">
+      <OnboardingWizard userId={user.id} />
     </div>
   );
 }
