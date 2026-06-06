@@ -34,7 +34,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${sora.variable} ${dmSans.variable}`}
     >
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

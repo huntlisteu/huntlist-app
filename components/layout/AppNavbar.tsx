@@ -24,7 +24,7 @@ interface AppNavbarProps {
 function AvatarFallback({ username }: { username: string | null }) {
   const letter = username ? username.charAt(0).toUpperCase() : "?";
   return (
-    <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1A1A18] bg-[#B84A1C] dark:bg-[#FF6B2C] font-sans text-sm font-bold text-white select-none shadow-[4px_4px_0px_#1A1A18]">
+    <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-[#B84A1C] dark:bg-[#FF6B2C] font-sans text-sm font-bold text-white select-none shadow-[4px_4px_0px_#1A1A18] dark:shadow-[2px_2px_0px_#3A3D38]">
       {letter}
     </span>
   );
@@ -38,7 +38,7 @@ function Avatar({ profile }: { profile: NavProfile | null }) {
   }
 
   return (
-    <span className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[#1A1A18] shadow-[4px_4px_0px_#1A1A18]">
+    <span className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[#1A1A18] dark:border-[#3A3D38] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[2px_2px_0px_#3A3D38]">
       <Image
         src={profile.avatar_url}
         alt={profile.username ?? "Avatar"}
@@ -181,6 +181,18 @@ export function AppNavbar({ isLoggedIn, profile }: AppNavbarProps) {
                           @{profile.username}
                         </p>
                       </div>
+                    )}
+
+                    {/* Il mio profilo */}
+                    {profile?.username && (
+                      <Link
+                        href={`/profile/${profile.username}`}
+                        role="menuitem"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center px-3 py-2.5 font-sans text-sm text-[#1A1A18] dark:text-[#F0EFE8] hover:bg-[#EAE2D4] dark:hover:bg-[#3A3D38] transition-colors"
+                      >
+                        Il mio profilo
+                      </Link>
                     )}
 
                     {/* Impostazioni */}

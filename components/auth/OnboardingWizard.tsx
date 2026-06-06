@@ -97,22 +97,22 @@ function GameCard({
       onClick={onToggle}
       aria-pressed={selected}
       className={[
-        "flex flex-col items-center gap-2 rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38]",
+        "flex flex-col items-center gap-2 rounded-[4px] border-2 border-[#1A1A18]",
         "p-4 font-sans transition-all",
         selected
-          ? "bg-[#6DBE00] dark:bg-[#9ADE00] shadow-[2px_2px_0px_#1A1A18] dark:shadow-[2px_2px_0px_#3A3D38] translate-x-0.5 translate-y-0.5"
-          : "bg-[#EAE2D4] dark:bg-[#3A3D38] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[4px_4px_0px_#3A3D38] " +
+          ? "bg-[#6DBE00] dark:bg-[#9ADE00] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[4px_4px_0px_#3A3D38]"
+          : "bg-[#F2EDE3] dark:bg-[#1A1C19] dark:border-[#3A3D38] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[4px_4px_0px_#3A3D38] " +
             "hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#1A1A18] dark:hover:shadow-[2px_2px_0px_#3A3D38]",
       ].join(" ")}
     >
       <span className="text-2xl leading-none">{TCG_META[game].emoji}</span>
-      <span className="text-center text-xs font-bold leading-tight text-[#1A1A18]">
+      <span className={["text-center text-xs font-bold leading-tight", selected ? "text-[#1A1A18]" : "text-[#1A1A18] dark:text-[#F0EFE8]"].join(" ")}>
         {GAME_LABELS[game]}
       </span>
       <span
         className={[
-          "h-4 w-4 rounded-full border-2 border-[#1A1A18] transition-colors",
-          selected ? "bg-[#1A1A18]" : "bg-transparent",
+          "h-4 w-4 rounded-full transition-colors",
+          selected ? "bg-[#1A1A18]" : "border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-transparent",
         ].join(" ")}
       />
     </button>
