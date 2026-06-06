@@ -9,46 +9,90 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type ErrorKind = "validation" | "session" | "generic";
+
+interface FormError {
+  message: string;
+  kind: ErrorKind;
+}
+
+function classifySupabaseError(message: string): ErrorKind {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("session") ||
+    lower.includes("jwt") ||
+    lower.includes("expired") ||
+    lower.includes("invalid") ||
+    lower.includes("not found")
+  ) {
+    return "session";
+  }
+  return "generic";
+}
+
 export function UpdatePasswordForm() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<FormError | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const isExpiredError =
-    error !== null &&
-    (error.includes("scaduto") || error.includes("valido"));
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
 
+    // ── Validazione client-side ──────────────────────────────────────────
     if (password.length < 8) {
-      setError("La password deve avere almeno 8 caratteri");
+      setFormError({
+        message: "La password deve essere di almeno 8 caratteri",
+        kind: "validation",
+      });
       return;
     }
     if (password !== confirm) {
-      setError("Le due password non coincidono");
+      setFormError({
+        message: "Le password non coincidono",
+        kind: "validation",
+      });
       return;
     }
 
     setIsSubmitting(true);
     const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const { data, error: updateError } = await supabase.auth.updateUser({
+      password,
+    });
     setIsSubmitting(false);
 
+    // ── Errore Supabase ──────────────────────────────────────────────────
     if (updateError) {
-      const msg = updateError.message.toLowerCase();
-      if (msg.includes("expired") || msg.includes("invalid") || msg.includes("not found")) {
-        setError("Il link è scaduto o non è più valido.");
-      } else {
-        setError("Errore durante l'aggiornamento. Riprova.");
-      }
+      // Log sempre il messaggio originale — mai inghiottito silenziosamente.
+      console.error("[update-password] supabase.auth.updateUser error:", {
+        message: updateError.message,
+        status: (updateError as { status?: number }).status,
+        name: updateError.name,
+      });
+
+      const kind = classifySupabaseError(updateError.message);
+
+      setFormError({
+        message:
+          kind === "session"
+            ? "Il link è scaduto. Richiedine uno nuovo."
+            : "Errore durante il salvataggio. Riprova tra qualche secondo.",
+        kind,
+      });
       return;
     }
 
-    router.push("/feed");
+    // ── Successo ─────────────────────────────────────────────────────────
+    if (data.user) {
+      // Sessione ancora attiva → vai al feed.
+      router.push("/feed");
+    } else {
+      // Supabase ha invalidato la sessione dopo il reset (raro ma possibile).
+      router.push("/login?message=password_aggiornata");
+    }
   }
 
   return (
@@ -82,12 +126,12 @@ export function UpdatePasswordForm() {
         />
       </div>
 
-      {error && (
+      {formError && (
         <div className="space-y-1">
           <p className="text-sm font-medium text-destructive" role="alert">
-            {error}
+            {formError.message}
           </p>
-          {isExpiredError && (
+          {formError.kind === "session" && (
             <Link
               href="/forgot-password"
               className="text-sm font-medium text-primary underline-offset-4 hover:underline"

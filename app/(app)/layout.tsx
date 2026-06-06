@@ -1,66 +1,28 @@
-import Link from "next/link";
-
-import { signOut } from "@/app/(app)/actions";
-import { Logo } from "@/components/brand/Logo";
-import { ThemeToggle } from "@/components/brand/ThemeToggle";
-import { Button } from "@/components/ui/button";
-import { getUser } from "@/lib/auth";
+import { AppNavbar } from "@/components/layout/AppNavbar";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { getProfile, getUser } from "@/lib/auth";
 
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Layout adattivo: alcune pagine sotto (app) sono pubbliche (feed, dettaglio
-  // Hunt aperta). NON si redirige qui; le pagine private chiamano requireUser().
-  const user = await getUser();
+  // Sia getUser che getProfile usano `cache` di React: una sola chiamata HTTP
+  // anche se invocate separatamente.
+  const [user, profile] = await Promise.all([getUser(), getProfile()]);
+
+  const navProfile = profile
+    ? { username: profile.username, avatar_url: profile.avatar_url }
+    : null;
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="container flex h-16 max-w-5xl items-center justify-between gap-4">
-          <Link href={user ? "/dashboard" : "/"} className="flex items-center">
-            <Logo width={140} height={36} />
-          </Link>
+      <AppNavbar isLoggedIn={!!user} profile={navProfile} />
 
-          <nav className="flex items-center gap-2 sm:gap-3">
-            {/* Feed: nascosto su mobile (<md), visibile da md in su */}
-            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
-              <Link href="/feed">Feed</Link>
-            </Button>
-            {user ? (
-              <>
-                <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
-                  <Link href="/dashboard">Dashboard</Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
-                  <Link href="/hunts/new">Nuova Hunt</Link>
-                </Button>
-                <span className="hidden text-sm text-muted-foreground md:inline">
-                  {user.email}
-                </span>
-                <ThemeToggle />
-                <form action={signOut}>
-                  <Button variant="ghost" size="sm" type="submit">
-                    Esci
-                  </Button>
-                </form>
-              </>
-            ) : (
-              <>
-                <ThemeToggle />
-                {/* Accedi: nascosto su mobile, visibile da md */}
-                <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
-                  <Link href="/login">Accedi</Link>
-                </Button>
-                {/* Registrati: sempre visibile */}
-                <Button asChild variant="ember" size="sm">
-                  <Link href="/signup">Registrati</Link>
-                </Button>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
-      <main className="container max-w-5xl flex-1 py-10">{children}</main>
+      {/* pb-20 su mobile lascia spazio alla bottom bar; md:pb-0 lo azzera */}
+      <main className="container max-w-5xl flex-1 py-10 pb-20 md:pb-10">
+        {children}
+      </main>
+
+      {user && <BottomNav />}
     </div>
   );
 }

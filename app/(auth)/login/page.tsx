@@ -16,9 +16,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, message } = await searchParams;
 
   return (
     <Card>
@@ -29,6 +29,14 @@ export default async function LoginPage({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {message === "password_aggiornata" && (
+          <p
+            className="rounded-md border border-[#6DBE00]/40 dark:border-[#9ADE00]/40 bg-[#EEF7CC] dark:bg-[#1A3A10] px-3 py-2 text-sm font-medium text-[#1A1A18] dark:text-[#F0EFE8]"
+            role="status"
+          >
+            Password aggiornata. Accedi con le nuove credenziali.
+          </p>
+        )}
         {error === "auth" && (
           <p
             className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"

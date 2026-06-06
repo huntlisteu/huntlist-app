@@ -12,6 +12,7 @@ const ONBOARDING_SKIP = [
   "/login",
   "/signup",
   "/callback",
+  "/auth",           // copre /auth/callback e qualsiasi altro path /auth/*
   "/forgot-password",
   "/update-password",
   "/api",
