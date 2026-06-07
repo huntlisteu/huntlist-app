@@ -289,14 +289,20 @@ export default async function ProfilePage({
 
           {/* Social links — solo se creator verificato */}
           {profile.creator_verified && (
-            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+            <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
               {profile.instagram_url && (
                 <a
                   href={profile.instagram_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-sans text-xs font-bold text-[#B84A1C] dark:text-[#FF6B2C] underline underline-offset-2"
+                  className="inline-flex items-center gap-1.5 font-sans text-xs font-bold text-[#1A1A18] dark:text-[#F0EFE8] hover:opacity-70 transition-opacity"
                 >
+                  {/* Instagram icon */}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" className="text-[#6DBE00] dark:text-[#9ADE00] shrink-0" aria-hidden="true">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none" />
+                  </svg>
                   Instagram
                 </a>
               )}
@@ -305,8 +311,18 @@ export default async function ProfilePage({
                   href={profile.tiktok_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-sans text-xs font-bold text-[#B84A1C] dark:text-[#FF6B2C] underline underline-offset-2"
+                  className="inline-flex items-center gap-1.5 font-sans text-xs font-bold text-[#1A1A18] dark:text-[#F0EFE8] hover:opacity-70 transition-opacity"
                 >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    width="14"
+                    height="14"
+                    className="text-[#6DBE00] dark:text-[#9ADE00] shrink-0"
+                    aria-hidden="true"
+                  >
+                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.22 8.22 0 0 0 4.81 1.55V6.79a4.85 4.85 0 0 1-1.04-.1z" />
+                  </svg>
                   TikTok
                 </a>
               )}
@@ -315,8 +331,12 @@ export default async function ProfilePage({
                   href={profile.x_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-sans text-xs font-bold text-[#B84A1C] dark:text-[#FF6B2C] underline underline-offset-2"
+                  className="inline-flex items-center gap-1.5 font-sans text-xs font-bold text-[#1A1A18] dark:text-[#F0EFE8] hover:opacity-70 transition-opacity"
                 >
+                  {/* X / Twitter icon */}
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" className="text-[#6DBE00] dark:text-[#9ADE00] shrink-0" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
                   X / Twitter
                 </a>
               )}

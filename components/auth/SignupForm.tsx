@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 
 import {
   signUpWithMagicLink,
@@ -35,6 +36,7 @@ function FormFeedback({ state }: { state: AuthFormState }) {
 export function SignupForm() {
   const [pwState, pwAction] = useActionState(signUpWithPassword, initialState);
   const [mlState, mlAction] = useActionState(signUpWithMagicLink, initialState);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -53,14 +55,25 @@ export function SignupForm() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="signup-password">Password</Label>
-          <Input
-            id="signup-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Almeno 8 caratteri"
-            required
-          />
+          <div className="relative">
+            <Input
+              id="signup-password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Almeno 8 caratteri"
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1A1A18] dark:text-[#F0EFE8] hover:opacity-70 transition-opacity"
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </div>
         <FormFeedback state={pwState} />
         <SubmitButton className="w-full" pendingLabel="Creazione in corso…">
