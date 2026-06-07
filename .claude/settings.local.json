@@ -9,7 +9,11 @@
       "Bash(node -e \"require\\('resend'\\); console.log\\('ok'\\)\")",
       "Bash(Select-String -Pattern \"^middleware|^proxy\")",
       "Bash(node -e \"console.log\\(require\\('./node_modules/next-themes/package.json'\\).version\\)\")",
-      "Bash(node -e \"const l = require\\('lucide-react'\\); const keys = Object.keys\\(l\\).filter\\(k => /instagram|twitter|x$/i.test\\(k\\)\\); console.log\\(keys\\)\")"
+      "Bash(node -e \"const l = require\\('lucide-react'\\); const keys = Object.keys\\(l\\).filter\\(k => /instagram|twitter|x$/i.test\\(k\\)\\); console.log\\(keys\\)\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/hunts/csvtest123)",
+      "Bash(taskkill //F //PID 8212)",
+      "Bash(netstat -ano)"
     ]
   }
 }

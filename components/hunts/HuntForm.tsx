@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
@@ -25,6 +25,75 @@ const MAX_CARDS = 20;
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+const CSV_PARSE_ERROR = "File non valido. Controlla il formato CSV.";
+const CSV_LIMIT_WARNING =
+  "Importate le prime 20 carte. Il limite massimo è 20.";
+
+const CARDMARKET_LANGUAGES = [
+  { code: "EN", label: "Inglese" },
+  { code: "IT", label: "Italiano" },
+  { code: "FR", label: "Francese" },
+  { code: "DE", label: "Tedesco" },
+  { code: "ES", label: "Spagnolo" },
+  { code: "PT", label: "Portoghese" },
+  { code: "JA", label: "Giapponese" },
+  { code: "KO", label: "Coreano" },
+  { code: "RU", label: "Russo" },
+  { code: "ZH", label: "Cinese" },
+] as const;
+
+type ParsedCsvCard = {
+  name: string;
+  quantity: number;
+  set_name: string;
+  collector_number: string;
+};
+
+/** Estrae nome/quantita'/set/numero da un CSV `name,quantity,set,number`; ignora header, righe vuote, righe senza nome e colonne extra non riconosciute. */
+function parseCsvCards(text: string): ParsedCsvCard[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) return [];
+
+  const firstCell = lines[0]?.split(",")[0]?.trim().toLowerCase();
+  const dataLines = firstCell === "name" ? lines.slice(1) : lines;
+
+  const parsed: ParsedCsvCard[] = [];
+  for (const line of dataLines) {
+    const cells = line.split(",");
+    const name = cells[0]?.trim() ?? "";
+    if (name.length === 0) continue;
+
+    const rawQuantity = cells[1]?.trim();
+    const n = rawQuantity ? Number.parseInt(rawQuantity, 10) : NaN;
+    const quantity = Number.isFinite(n) && n > 0 ? Math.min(99, n) : 1;
+
+    const set_name = cells[2]?.trim() ?? "";
+    const collector_number = cells[3]?.trim() ?? "";
+
+    parsed.push({ name, quantity, set_name, collector_number });
+  }
+
+  return parsed;
+}
+
+function downloadCsvTemplate() {
+  const csvContent =
+    "name,quantity,set,number\nCharizard,1,Base Set,4/102\nPikachu,2,Base Set,58/102\n";
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "huntlist-template.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 type CardDraft = {
   name: string;
@@ -68,6 +137,75 @@ export function HuntForm({
     defaultCards && defaultCards.length > 0 ? defaultCards : [emptyCard()],
   );
 
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvWarning, setCsvWarning] = useState<string | null>(null);
+  const [showBulkBanner, setShowBulkBanner] = useState(false);
+  const [bulkLanguage, setBulkLanguage] = useState("");
+  const [bulkCondition, setBulkCondition] = useState<CardCondition | "any" | "">(
+    "",
+  );
+
+  async function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file) return;
+
+    setCsvError(null);
+    setCsvWarning(null);
+
+    try {
+      const text = await file.text();
+      const parsed = parseCsvCards(text);
+
+      if (parsed.length === 0) {
+        setCsvError(CSV_PARSE_ERROR);
+        return;
+      }
+
+      const filledExisting = cards.filter((c) => c.name.trim().length > 0);
+      const availableSlots = Math.max(0, MAX_CARDS - filledExisting.length);
+      const toImport = parsed.slice(0, availableSlots);
+
+      if (parsed.length > toImport.length) {
+        setCsvWarning(CSV_LIMIT_WARNING);
+      }
+
+      if (toImport.length === 0) return;
+
+      const importedCards: CardDraft[] = toImport.map((p) => ({
+        name: p.name,
+        set_name: p.set_name,
+        collector_number: p.collector_number,
+        language: "",
+        quantity: p.quantity,
+        desired_condition: "",
+      }));
+
+      setCards([...filledExisting, ...importedCards]);
+      setShowBulkBanner(true);
+    } catch {
+      setCsvError(CSV_PARSE_ERROR);
+    }
+  }
+
+  function applyToAllCards() {
+    if (bulkLanguage === "" && bulkCondition === "") return;
+
+    setCards((prev) =>
+      prev.map((c) => ({
+        ...c,
+        language: bulkLanguage !== "" ? bulkLanguage : c.language,
+        desired_condition:
+          bulkCondition === ""
+            ? c.desired_condition
+            : bulkCondition === "any"
+              ? ""
+              : bulkCondition,
+      })),
+    );
+  }
+
   function updateCard<K extends keyof CardDraft>(
     index: number,
     key: K,
@@ -109,6 +247,50 @@ export function HuntForm({
         <input type="hidden" name="id" value={huntId} />
       ) : null}
       <input type="hidden" name="cards" value={JSON.stringify(cardsPayload)} />
+
+      {/* Import CSV */}
+      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => csvInputRef.current?.click()}
+          >
+            Carica da CSV
+          </Button>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleCsvFileChange}
+          />
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="text-sm font-medium text-accent underline-offset-4 hover:underline"
+          >
+            Scarica template
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Formato:{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+            nome,quantità
+          </code>{" "}
+          — una carta per riga. La quantità è opzionale (default: 1).
+        </p>
+        {csvError ? (
+          <p className="text-sm font-medium text-destructive" role="alert">
+            {csvError}
+          </p>
+        ) : null}
+        {csvWarning ? (
+          <p className="text-sm font-medium text-accent" role="status">
+            {csvWarning}
+          </p>
+        ) : null}
+      </div>
 
       {/* Dati Hunt */}
       <div className="space-y-4">
@@ -172,6 +354,61 @@ export function HuntForm({
             {cards.length}/{MAX_CARDS}
           </span>
         </div>
+
+        {showBulkBanner ? (
+          <div className="space-y-3 rounded-lg border-2 border-[#1A1A18] bg-card p-4 dark:border-[#3A3D38]">
+            <p className="font-heading text-sm font-semibold">
+              Imposta tutte le carte
+            </p>
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <div className="space-y-1.5">
+                <Label htmlFor="bulk-language">Lingua</Label>
+                <select
+                  id="bulk-language"
+                  value={bulkLanguage}
+                  onChange={(e) => setBulkLanguage(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">Non modificare</option>
+                  {CARDMARKET_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.label}>
+                      {l.label} ({l.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="bulk-condition">Condizione</Label>
+                <select
+                  id="bulk-condition"
+                  value={bulkCondition}
+                  onChange={(e) =>
+                    setBulkCondition(e.target.value as CardCondition | "any" | "")
+                  }
+                  className={selectClass}
+                >
+                  <option value="">Non modificare</option>
+                  <option value="any">Qualsiasi</option>
+                  {CARD_CONDITIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {CONDITION_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={applyToAllCards}
+                disabled={bulkLanguage === "" && bulkCondition === ""}
+              >
+                Applica a tutte
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="space-y-4">
           {cards.map((card, index) => (
