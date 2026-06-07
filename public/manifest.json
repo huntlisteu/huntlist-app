@@ -1,0 +1,28 @@
+{
+  "name": "Huntlist",
+  "short_name": "Huntlist",
+  "description": "Il marketplace C2C per collezionisti TCG",
+  "start_url": "/feed",
+  "display": "standalone",
+  "background_color": "#F2EDE3",
+  "theme_color": "#1A1A18",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Sora } from "next/font/google";
 
 import { ThemeProvider } from "@/components/brand/ThemeProvider";
+import PWARegister from "@/components/PWARegister";
 import "./globals.css";
 
 // Sora (800) -> titoli; DM Sans -> corpo. Esposti come CSS variables e mappati
@@ -34,6 +35,14 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${sora.variable} ${dmSans.variable}`}
     >
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1A1A18" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Huntlist" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
@@ -43,6 +52,7 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <PWARegister />
       </body>
     </html>
   );
