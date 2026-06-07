@@ -32,6 +32,14 @@ type ProfileRow = {
   bio: string | null;
   country: string | null;
   preferred_games: string[];
+  is_early_user: boolean | null;
+  shop_verified: boolean | null;
+  shop_name: string | null;
+  shop_address: string | null;
+  creator_verified: boolean | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  x_url: string | null;
 };
 
 type RawProfileHunt = {
@@ -76,6 +84,28 @@ function GamePill({ game }: { game: Game }) {
   return (
     <span className="inline-flex items-center rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-[#EAE2D4] dark:bg-[#3A3D38] px-2 py-0.5 font-sans text-xs font-bold text-[#1A1A18] dark:text-[#F0EFE8]">
       {GAME_LABELS[game] ?? game}
+    </span>
+  );
+}
+
+function BadgePill({
+  label,
+  color,
+}: {
+  label: string;
+  color: "chartreuse" | "ember" | "creator";
+}) {
+  const bg =
+    color === "chartreuse"
+      ? "bg-[#6DBE00] dark:bg-[#9ADE00] text-[#1A1A18]"
+      : color === "ember"
+        ? "bg-[#B84A1C] dark:bg-[#FF6B2C] text-white"
+        : "bg-[#6B21A8] text-white";
+  return (
+    <span
+      className={`inline-flex items-center rounded-[4px] border-2 border-[#1A1A18] px-2 py-0.5 font-sans text-xs font-bold ${bg}`}
+    >
+      {label}
     </span>
   );
 }
@@ -156,14 +186,18 @@ export default async function ProfilePage({
     getUser(),
     supabase
       .from("profiles")
-      .select("id, username, display_name, avatar_url, bio, country, preferred_games")
+      .select(
+        "id, username, display_name, avatar_url, bio, country, preferred_games, " +
+        "is_early_user, shop_verified, shop_name, shop_address, " +
+        "creator_verified, instagram_url, tiktok_url, x_url",
+      )
       .eq("username", username)
       .maybeSingle(),
   ]);
 
   if (!profileResult.data) notFound();
 
-  const profile = profileResult.data as ProfileRow;
+  const profile = profileResult.data as unknown as ProfileRow;
   const isOwnProfile = user?.id === profile.id;
   const isLoggedIn = !!user;
 
@@ -214,6 +248,21 @@ export default async function ProfilePage({
             )}
           </div>
 
+          {/* Badges */}
+          {(profile.is_early_user || profile.shop_verified || profile.creator_verified) && (
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+              {profile.is_early_user && (
+                <BadgePill label="Early User" color="chartreuse" />
+              )}
+              {profile.shop_verified && (
+                <BadgePill label="Negozio Verificato" color="ember" />
+              )}
+              {profile.creator_verified && (
+                <BadgePill label="Creator" color="creator" />
+              )}
+            </div>
+          )}
+
           {profile.bio && (
             <p className="font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
               {profile.bio}
@@ -224,6 +273,54 @@ export default async function ProfilePage({
             <p className="font-sans text-xs text-[#8A8A82] dark:text-[#5A5A54]">
               📍 {COUNTRY_NAMES[profile.country]}
             </p>
+          )}
+
+          {/* Shop info — solo se verificato */}
+          {profile.shop_verified && profile.shop_name && (
+            <div className="font-sans text-xs text-[#4A4A44] dark:text-[#B0AFA8] space-y-0.5">
+              <p className="font-bold text-[#1A1A18] dark:text-[#F0EFE8]">
+                🏪 {profile.shop_name}
+              </p>
+              {profile.shop_address && (
+                <p>{profile.shop_address}</p>
+              )}
+            </div>
+          )}
+
+          {/* Social links — solo se creator verificato */}
+          {profile.creator_verified && (
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+              {profile.instagram_url && (
+                <a
+                  href={profile.instagram_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-sans text-xs font-bold text-[#B84A1C] dark:text-[#FF6B2C] underline underline-offset-2"
+                >
+                  Instagram
+                </a>
+              )}
+              {profile.tiktok_url && (
+                <a
+                  href={profile.tiktok_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-sans text-xs font-bold text-[#B84A1C] dark:text-[#FF6B2C] underline underline-offset-2"
+                >
+                  TikTok
+                </a>
+              )}
+              {profile.x_url && (
+                <a
+                  href={profile.x_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-sans text-xs font-bold text-[#B84A1C] dark:text-[#FF6B2C] underline underline-offset-2"
+                >
+                  X / Twitter
+                </a>
+              )}
+            </div>
           )}
 
           {profile.preferred_games.length > 0 && (

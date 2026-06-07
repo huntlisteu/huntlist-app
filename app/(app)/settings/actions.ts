@@ -121,6 +121,82 @@ export async function updatePreferredGames(
   return { success: true };
 }
 
+// ── updateBadgeInfo ───────────────────────────────────────────────────────────
+
+const optionalUrl = z.preprocess(
+  (v) => (typeof v === "string" && !v.trim() ? undefined : v),
+  z.string().url("Inserisci un URL valido (es. https://...)").optional(),
+);
+
+const updateShopSchema = z.object({
+  shop_name: z.string().trim().min(1, "Nome negozio obbligatorio").max(100),
+  shop_address: z.string().trim().min(1, "Indirizzo obbligatorio").max(200),
+});
+
+const updateCreatorSchema = z
+  .object({
+    instagram_url: optionalUrl,
+    tiktok_url: optionalUrl,
+    x_url: optionalUrl,
+  })
+  .refine(
+    (d) => !!(d.instagram_url || d.tiktok_url || d.x_url),
+    { message: "Inserisci almeno un link social", path: ["instagram_url"] },
+  );
+
+export async function updateBadgeInfo(
+  formData: FormData,
+): Promise<SettingsResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "Non autenticato." };
+
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = (profileData as { role: string } | null)?.role;
+
+  if (role === "shop") {
+    const parsed = updateShopSchema.safeParse({
+      shop_name: formData.get("shop_name"),
+      shop_address: formData.get("shop_address"),
+    });
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update(parsed.data)
+      .eq("id", user.id);
+    if (updateError) return { error: "Impossibile salvare. Riprova." };
+  } else if (role === "creator") {
+    const parsed = updateCreatorSchema.safeParse({
+      instagram_url: formData.get("instagram_url"),
+      tiktok_url: formData.get("tiktok_url"),
+      x_url: formData.get("x_url"),
+    });
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        instagram_url: parsed.data.instagram_url ?? null,
+        tiktok_url: parsed.data.tiktok_url ?? null,
+        x_url: parsed.data.x_url ?? null,
+      })
+      .eq("id", user.id);
+    if (updateError) return { error: "Impossibile salvare. Riprova." };
+  } else {
+    return { error: "Ruolo non supportato." };
+  }
+
+  revalidatePath("/settings");
+  return { success: true };
+}
+
 export async function sendPasswordResetEmail(): Promise<SettingsResult> {
   const supabase = await createClient();
   const {

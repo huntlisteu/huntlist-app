@@ -8,6 +8,7 @@ import { GAMES, GAME_LABELS, type Game } from "@/lib/tcg";
 import {
   sendPasswordResetEmail,
   updateAvatarUrl,
+  updateBadgeInfo,
   updatePreferredGames,
   updateProfile,
 } from "./actions";
@@ -113,6 +114,17 @@ interface SettingsClientProps {
   initialCountry: string;
   initialGames: Game[];
   initialAvatarUrl: string | null;
+  // Badge
+  role: "user" | "shop" | "creator";
+  initialShopName: string;
+  initialShopAddress: string;
+  shopVerified: boolean;
+  shopPending: boolean;
+  initialInstagramUrl: string;
+  initialTiktokUrl: string;
+  initialXUrl: string;
+  creatorVerified: boolean;
+  creatorPending: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -124,6 +136,16 @@ export function SettingsClient({
   initialCountry,
   initialGames,
   initialAvatarUrl,
+  role,
+  initialShopName,
+  initialShopAddress,
+  shopVerified,
+  shopPending,
+  initialInstagramUrl,
+  initialTiktokUrl,
+  initialXUrl,
+  creatorVerified,
+  creatorPending,
 }: SettingsClientProps) {
   const [initialFirst, initialLast] = splitFullName(initialFullName);
 
@@ -156,6 +178,16 @@ export function SettingsClient({
   const [passwordSending, setPasswordSending] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // ── Badge ──
+  const [shopName, setShopName] = useState(initialShopName);
+  const [shopAddress, setShopAddress] = useState(initialShopAddress);
+  const [instagramUrl, setInstagramUrl] = useState(initialInstagramUrl);
+  const [tiktokUrl, setTiktokUrl] = useState(initialTiktokUrl);
+  const [xUrl, setXUrl] = useState(initialXUrl);
+  const [badgeSaving, setBadgeSaving] = useState(false);
+  const [badgeError, setBadgeError] = useState<string | null>(null);
+  const [badgeSuccess, setBadgeSuccess] = useState(false);
 
   // ── Avatar handlers ────────────────────────────────────────────────────────
 
@@ -275,6 +307,33 @@ export function SettingsClient({
       setPasswordError(result.error);
     } else {
       setPasswordSuccess(true);
+    }
+  }
+
+  // ── Badge handler ──────────────────────────────────────────────────────────
+
+  async function handleSaveBadge() {
+    setBadgeSaving(true);
+    setBadgeError(null);
+    setBadgeSuccess(false);
+
+    const fd = new FormData();
+    if (role === "shop") {
+      fd.append("shop_name", shopName);
+      fd.append("shop_address", shopAddress);
+    } else if (role === "creator") {
+      fd.append("instagram_url", instagramUrl);
+      fd.append("tiktok_url", tiktokUrl);
+      fd.append("x_url", xUrl);
+    }
+
+    const result = await updateBadgeInfo(fd);
+    setBadgeSaving(false);
+
+    if ("error" in result) {
+      setBadgeError(result.error);
+    } else {
+      setBadgeSuccess(true);
     }
   }
 
@@ -592,6 +651,144 @@ export function SettingsClient({
           </div>
         )}
       </section>
+
+      {/* ── Badge e verifica ─────────────────────────────────────────── */}
+      {role !== "user" && (
+        <section className={SECTION}>
+          <h2 className="mb-1 font-heading text-lg text-[#1A1A18] dark:text-[#F0EFE8]">
+            Badge e verifica
+          </h2>
+          <p className="mb-4 font-sans text-xs text-[#8A8A82] dark:text-[#5A5A54]">
+            Ruolo attuale:{" "}
+            <span className="font-bold text-[#1A1A18] dark:text-[#F0EFE8]">
+              {role === "shop" ? "Negozio Fisico" : "Creator"}
+            </span>
+          </p>
+
+          {/* Status badge */}
+          {role === "shop" && (
+            <>
+              {shopVerified && (
+                <p className="mb-4 inline-flex items-center gap-1.5 rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-[#B84A1C] dark:bg-[#FF6B2C] px-3 py-1 font-sans text-xs font-bold text-white">
+                  Negozio Verificato ✓
+                </p>
+              )}
+              {shopPending && !shopVerified && (
+                <p className="mb-4 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
+                  Richiesta in attesa di verifica.
+                </p>
+              )}
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="badge-shop-name" className={LABEL}>
+                    Nome negozio
+                  </label>
+                  <input
+                    id="badge-shop-name"
+                    type="text"
+                    value={shopName}
+                    onChange={(e) => { setShopName(e.target.value); setBadgeSuccess(false); }}
+                    placeholder="Card Shop Milano"
+                    maxLength={100}
+                    className={INPUT}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="badge-shop-address" className={LABEL}>
+                    Indirizzo
+                  </label>
+                  <input
+                    id="badge-shop-address"
+                    type="text"
+                    value={shopAddress}
+                    onChange={(e) => { setShopAddress(e.target.value); setBadgeSuccess(false); }}
+                    placeholder="Via Roma 1, Milano"
+                    maxLength={200}
+                    className={INPUT}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {role === "creator" && (
+            <>
+              {creatorVerified && (
+                <p className="mb-4 inline-flex items-center gap-1.5 rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-[#6B21A8] px-3 py-1 font-sans text-xs font-bold text-white">
+                  Creator Verificato ✓
+                </p>
+              )}
+              {creatorPending && !creatorVerified && (
+                <p className="mb-4 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
+                  Richiesta in attesa di verifica.
+                </p>
+              )}
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="badge-instagram" className={LABEL}>
+                    Instagram
+                  </label>
+                  <input
+                    id="badge-instagram"
+                    type="url"
+                    value={instagramUrl}
+                    onChange={(e) => { setInstagramUrl(e.target.value); setBadgeSuccess(false); }}
+                    placeholder="https://instagram.com/..."
+                    className={INPUT}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="badge-tiktok" className={LABEL}>
+                    TikTok
+                  </label>
+                  <input
+                    id="badge-tiktok"
+                    type="url"
+                    value={tiktokUrl}
+                    onChange={(e) => { setTiktokUrl(e.target.value); setBadgeSuccess(false); }}
+                    placeholder="https://tiktok.com/@..."
+                    className={INPUT}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="badge-x" className={LABEL}>
+                    X / Twitter
+                  </label>
+                  <input
+                    id="badge-x"
+                    type="url"
+                    value={xUrl}
+                    onChange={(e) => { setXUrl(e.target.value); setBadgeSuccess(false); }}
+                    placeholder="https://x.com/..."
+                    className={INPUT}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="mt-5 flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={handleSaveBadge}
+              disabled={badgeSaving}
+              className={BTN_PRIMARY}
+            >
+              {badgeSaving ? "Salvataggio…" : "Salva"}
+            </button>
+            {badgeError && (
+              <p className="font-sans text-sm text-[#B84A1C] dark:text-[#FF6B2C]" role="alert">
+                {badgeError}
+              </p>
+            )}
+            {badgeSuccess && !badgeError && (
+              <p className="font-sans text-sm text-[#2D5A3D] dark:text-[#5DCAA5]">
+                Salvato.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

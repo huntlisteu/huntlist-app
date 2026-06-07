@@ -8,7 +8,12 @@ import { completeOnboarding } from "@/app/(app)/onboarding/actions";
 import { createClient } from "@/lib/supabase/client";
 import { GAMES, GAME_LABELS, type Game } from "@/lib/tcg";
 
-// ── Validation ───────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type Role = "user" | "shop" | "creator";
+type Step = 1 | 2 | 3 | 4;
+
+// ── Validation ────────────────────────────────────────────────────────────────
 
 const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
 
@@ -18,6 +23,16 @@ function validateUsername(v: string): string | null {
   if (v.length > 20) return "Massimo 20 caratteri";
   if (!USERNAME_RE.test(v)) return "Solo lettere, numeri e underscore";
   return null;
+}
+
+function isValidUrl(v: string): boolean {
+  if (!v.trim()) return true; // empty = valid (optional)
+  try {
+    const u = new URL(v.trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 // ── Brand constants ───────────────────────────────────────────────────────────
@@ -51,12 +66,30 @@ const BTN_GHOST =
   "disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 " +
   "disabled:shadow-[4px_4px_0px_#1A1A18] dark:disabled:shadow-[4px_4px_0px_#3A3D38]";
 
-// ── TCG metadata ─────────────────────────────────────────────────────────────
+// ── TCG metadata ──────────────────────────────────────────────────────────────
 
 const TCG_META: Record<Game, { emoji: string }> = {
   pokemon: { emoji: "🎴" },
   one_piece: { emoji: "⚓" },
   yugioh: { emoji: "⚔️" },
+};
+
+const ROLE_META: Record<Role, { emoji: string; label: string; description: string }> = {
+  user: {
+    emoji: "🃏",
+    label: "Utente",
+    description: "Compro e vendo carte tra collezionisti",
+  },
+  shop: {
+    emoji: "🏪",
+    label: "Negozio Fisico",
+    description: "Ho un negozio fisico e voglio vendere su Huntlist",
+  },
+  creator: {
+    emoji: "🎥",
+    label: "Creator",
+    description: "Sono un creator TCG e voglio un profilo verificato",
+  },
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -79,6 +112,49 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
         {current} di {total}
       </span>
     </div>
+  );
+}
+
+function RoleCard({
+  role,
+  selected,
+  onSelect,
+}: {
+  role: Role;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const meta = ROLE_META[role];
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={[
+        "flex flex-col items-start gap-2 rounded-[4px] border-2 border-[#1A1A18] w-full p-4 font-sans text-left transition-all",
+        selected
+          ? "bg-[#6DBE00] dark:bg-[#9ADE00] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[4px_4px_0px_#3A3D38]"
+          : "bg-[#F2EDE3] dark:bg-[#1A1C19] dark:border-[#3A3D38] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[4px_4px_0px_#3A3D38] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#1A1A18] dark:hover:shadow-[2px_2px_0px_#3A3D38]",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-xl leading-none">{meta.emoji}</span>
+        <span className={["font-bold text-sm", selected ? "text-[#1A1A18]" : "text-[#1A1A18] dark:text-[#F0EFE8]"].join(" ")}>
+          {meta.label}
+        </span>
+        <span
+          className={[
+            "ml-auto h-4 w-4 rounded-full border-2 transition-colors",
+            selected
+              ? "border-[#1A1A18] bg-[#1A1A18]"
+              : "border-[#1A1A18] dark:border-[#3A3D38] bg-transparent",
+          ].join(" ")}
+        />
+      </div>
+      <p className={["text-xs leading-snug", selected ? "text-[#1A1A18]/80" : "text-[#4A4A44] dark:text-[#B0AFA8]"].join(" ")}>
+        {meta.description}
+      </p>
+    </button>
   );
 }
 
@@ -124,41 +200,69 @@ function GameCard({
 export function OnboardingWizard({ userId }: { userId: string }) {
   const router = useRouter();
 
-  // Step 1
+  // Navigation
+  const [step, setStep] = useState<Step>(1);
+
+  // Step 1 — Role
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+
+  // Step 2 — Username + TCG
   const [username, setUsername] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameServerError, setUsernameServerError] = useState<string | null>(null);
   const [selectedGames, setSelectedGames] = useState<Set<Game>>(new Set());
 
-  // Step 2
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  // Step 3 — Shop data
+  const [shopName, setShopName] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
 
-  // Step 3
+  // Step 3 — Creator data
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [xUrl, setXUrl] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  // Step 4 — Avatar
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Submit
-  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isStep1Valid =
+  // ── Computed ────────────────────────────────────────────────────────────────
+
+  const totalSteps = selectedRole === "user" ? 3 : 4;
+
+  // Map raw step to visual step number.
+  const displayStep =
+    step === 4 ? (selectedRole === "user" ? 3 : 4) : step;
+
+  const isStep2Valid =
     username.length >= 3 &&
     username.length <= 20 &&
     !usernameError &&
     !usernameServerError &&
     selectedGames.size > 0;
 
+  const isStep3Valid =
+    selectedRole === "shop"
+      ? shopName.trim().length > 0 && shopAddress.trim().length > 0
+      : selectedRole === "creator"
+        ? !!(instagramUrl.trim() || tiktokUrl.trim() || xUrl.trim())
+        : true;
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
   function handleUsernameChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
     setUsername(v);
     setUsernameError(validateUsername(v));
-    setUsernameServerError(null); // clear server error on any edit
+    setUsernameServerError(null);
   }
 
   function toggleGame(game: Game) {
@@ -168,6 +272,24 @@ export function OnboardingWizard({ userId }: { userId: string }) {
       else next.add(game);
       return next;
     });
+  }
+
+  function handleStep2Continue() {
+    if (!selectedRole) return;
+    // For user: skip step 3 (go straight to step 4)
+    setStep(selectedRole === "user" ? 4 : 3);
+  }
+
+  function validateUrlFields(): boolean {
+    const urls = [instagramUrl, tiktokUrl, xUrl].filter(Boolean);
+    for (const u of urls) {
+      if (!isValidUrl(u)) {
+        setUrlError("Inserisci un URL valido (es. https://...)");
+        return false;
+      }
+    }
+    setUrlError(null);
+    return true;
   }
 
   function processFile(file: File) {
@@ -218,24 +340,28 @@ export function OnboardingWizard({ userId }: { userId: string }) {
       avatarUrl = data.publicUrl;
     }
 
-    const fullName = [firstName.trim(), lastName.trim()]
-      .filter(Boolean)
-      .join(" ");
-
     const fd = new FormData();
     fd.append("username", username);
     for (const game of selectedGames) fd.append("preferred_games", game);
-    if (fullName) fd.append("full_name", fullName);
+    fd.append("role", selectedRole ?? "user");
     if (avatarUrl) fd.append("avatar_url", avatarUrl);
+    if (selectedRole === "shop") {
+      fd.append("shop_name", shopName.trim());
+      fd.append("shop_address", shopAddress.trim());
+    }
+    if (selectedRole === "creator") {
+      if (instagramUrl.trim()) fd.append("instagram_url", instagramUrl.trim());
+      if (tiktokUrl.trim()) fd.append("tiktok_url", tiktokUrl.trim());
+      if (xUrl.trim()) fd.append("x_url", xUrl.trim());
+    }
 
     const result = await completeOnboarding(fd);
     setIsSubmitting(false);
 
     if ("error" in result) {
-      // Username conflict: surface it back on Step 1.
       if (result.error.toLowerCase().includes("username")) {
         setUsernameServerError(result.error);
-        setStep(1);
+        setStep(2);
         return;
       }
       setSubmitError(result.error);
@@ -245,19 +371,51 @@ export function OnboardingWizard({ userId }: { userId: string }) {
     router.push("/feed");
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <div className={CARD}>
-      <StepIndicator current={step} total={3} />
+      <StepIndicator current={displayStep} total={totalSteps} />
 
-      {/* ── STEP 1: Username + TCG ── */}
+      {/* ── STEP 1: Ruolo ── */}
       {step === 1 && (
+        <div>
+          <h1 className="mb-1 font-heading text-2xl text-[#1A1A18] dark:text-[#F0EFE8]">
+            Come userai Huntlist?
+          </h1>
+          <p className="mb-6 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
+            Scegli il tuo ruolo per personalizzare l&apos;esperienza.
+          </p>
+
+          <div className="mb-6 flex flex-col gap-3">
+            {(["user", "shop", "creator"] as Role[]).map((role) => (
+              <RoleCard
+                key={role}
+                role={role}
+                selected={selectedRole === role}
+                onSelect={() => setSelectedRole(role)}
+              />
+            ))}
+          </div>
+
+          <button
+            className={BTN_PRIMARY + " w-full"}
+            disabled={!selectedRole}
+            onClick={() => setStep(2)}
+          >
+            Continua →
+          </button>
+        </div>
+      )}
+
+      {/* ── STEP 2: Username + TCG ── */}
+      {step === 2 && (
         <div>
           <h1 className="mb-1 font-heading text-2xl text-[#1A1A18] dark:text-[#F0EFE8]">
             Crea il tuo profilo
           </h1>
           <p className="mb-6 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
-            Scegli un username e i giochi che collezionate.
+            Scegli un username e i giochi che collezioni.
           </p>
 
           {/* Username */}
@@ -311,9 +469,7 @@ export function OnboardingWizard({ userId }: { userId: string }) {
           <div className="mb-6">
             <label className="mb-1.5 block font-sans text-xs font-bold uppercase tracking-wider text-[#4A4A44] dark:text-[#B0AFA8]">
               Giochi preferiti{" "}
-              <span className="text-[#B84A1C] dark:text-[#FF6B2C]">
-                (almeno 1)
-              </span>
+              <span className="text-[#B84A1C] dark:text-[#FF6B2C]">(almeno 1)</span>
             </label>
             <div className="grid grid-cols-3 gap-3">
               {GAMES.map((game) => (
@@ -329,75 +485,159 @@ export function OnboardingWizard({ userId }: { userId: string }) {
 
           <button
             className={BTN_PRIMARY + " w-full"}
-            disabled={!isStep1Valid}
-            onClick={() => setStep(2)}
+            disabled={!isStep2Valid}
+            onClick={handleStep2Continue}
           >
             Continua →
           </button>
         </div>
       )}
 
-      {/* ── STEP 2: Nome e Cognome ── */}
-      {step === 2 && (
+      {/* ── STEP 3: Dati aggiuntivi (shop / creator) ── */}
+      {step === 3 && selectedRole === "shop" && (
         <div>
           <h1 className="mb-1 font-heading text-2xl text-[#1A1A18] dark:text-[#F0EFE8]">
-            Come ti chiami?
+            Il tuo negozio
           </h1>
-          <p className="mb-1 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
-            Facoltativo — visibile solo nel tuo profilo, non pubblicamente.
-          </p>
-          <p className="mb-6 font-sans text-xs text-[#8A8A82] dark:text-[#5A5A54]">
-            Puoi saltare questo passaggio.
+          <p className="mb-6 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
+            Inserisci i dati del tuo negozio fisico.
           </p>
 
           <div className="mb-4 space-y-3">
             <div>
               <label
-                htmlFor="first-name"
+                htmlFor="shop-name"
                 className="mb-1.5 block font-sans text-xs font-bold uppercase tracking-wider text-[#4A4A44] dark:text-[#B0AFA8]"
               >
-                Nome
+                Nome negozio <span className="text-[#B84A1C] dark:text-[#FF6B2C]">*</span>
               </label>
               <input
-                id="first-name"
+                id="shop-name"
                 type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Marco"
-                maxLength={50}
+                value={shopName}
+                onChange={(e) => setShopName(e.target.value)}
+                placeholder="Card Shop Milano"
+                maxLength={100}
                 className={INPUT_BASE}
               />
             </div>
             <div>
               <label
-                htmlFor="last-name"
+                htmlFor="shop-address"
                 className="mb-1.5 block font-sans text-xs font-bold uppercase tracking-wider text-[#4A4A44] dark:text-[#B0AFA8]"
               >
-                Cognome
+                Indirizzo <span className="text-[#B84A1C] dark:text-[#FF6B2C]">*</span>
               </label>
               <input
-                id="last-name"
+                id="shop-address"
                 type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Rossi"
-                maxLength={50}
+                value={shopAddress}
+                onChange={(e) => setShopAddress(e.target.value)}
+                placeholder="Via Roma 1, Milano"
+                maxLength={200}
                 className={INPUT_BASE}
               />
             </div>
           </div>
 
+          <p className="mb-5 font-sans text-xs text-[#8A8A82] dark:text-[#5A5A54]">
+            La tua richiesta verrà valutata il prima possibile.
+          </p>
+
           <button
             className={BTN_PRIMARY + " w-full"}
-            onClick={() => setStep(3)}
+            disabled={!isStep3Valid}
+            onClick={() => setStep(4)}
           >
             Continua →
           </button>
         </div>
       )}
 
-      {/* ── STEP 3: Avatar ── */}
-      {step === 3 && (
+      {step === 3 && selectedRole === "creator" && (
+        <div>
+          <h1 className="mb-1 font-heading text-2xl text-[#1A1A18] dark:text-[#F0EFE8]">
+            I tuoi canali
+          </h1>
+          <p className="mb-6 font-sans text-sm text-[#4A4A44] dark:text-[#B0AFA8]">
+            Inserisci almeno un link ai tuoi social.
+          </p>
+
+          <div className="mb-4 space-y-3">
+            <div>
+              <label
+                htmlFor="instagram-url"
+                className="mb-1.5 block font-sans text-xs font-bold uppercase tracking-wider text-[#4A4A44] dark:text-[#B0AFA8]"
+              >
+                Instagram
+              </label>
+              <input
+                id="instagram-url"
+                type="url"
+                value={instagramUrl}
+                onChange={(e) => { setInstagramUrl(e.target.value); setUrlError(null); }}
+                placeholder="https://instagram.com/..."
+                className={INPUT_BASE}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="tiktok-url"
+                className="mb-1.5 block font-sans text-xs font-bold uppercase tracking-wider text-[#4A4A44] dark:text-[#B0AFA8]"
+              >
+                TikTok
+              </label>
+              <input
+                id="tiktok-url"
+                type="url"
+                value={tiktokUrl}
+                onChange={(e) => { setTiktokUrl(e.target.value); setUrlError(null); }}
+                placeholder="https://tiktok.com/@..."
+                className={INPUT_BASE}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="x-url"
+                className="mb-1.5 block font-sans text-xs font-bold uppercase tracking-wider text-[#4A4A44] dark:text-[#B0AFA8]"
+              >
+                X / Twitter
+              </label>
+              <input
+                id="x-url"
+                type="url"
+                value={xUrl}
+                onChange={(e) => { setXUrl(e.target.value); setUrlError(null); }}
+                placeholder="https://x.com/..."
+                className={INPUT_BASE}
+              />
+            </div>
+          </div>
+
+          {urlError && (
+            <p className="mb-3 font-sans text-xs text-[#B84A1C] dark:text-[#FF6B2C]" role="alert">
+              {urlError}
+            </p>
+          )}
+
+          <p className="mb-5 font-sans text-xs text-[#8A8A82] dark:text-[#5A5A54]">
+            La tua richiesta verrà valutata il prima possibile.
+          </p>
+
+          <button
+            className={BTN_PRIMARY + " w-full"}
+            disabled={!isStep3Valid}
+            onClick={() => {
+              if (validateUrlFields()) setStep(4);
+            }}
+          >
+            Continua →
+          </button>
+        </div>
+      )}
+
+      {/* ── STEP 4: Avatar ── */}
+      {step === 4 && (
         <div>
           <h1 className="mb-1 font-heading text-2xl text-[#1A1A18] dark:text-[#F0EFE8]">
             Aggiungi una foto
@@ -411,14 +651,9 @@ export function OnboardingWizard({ userId }: { userId: string }) {
             role="button"
             tabIndex={0}
             onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) =>
-              e.key === "Enter" && fileInputRef.current?.click()
-            }
+            onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
             onDrop={handleDrop}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             className={[
               "mb-4 flex flex-col items-center justify-center gap-3 rounded-[4px] border-2 border-dashed",
@@ -474,19 +709,13 @@ export function OnboardingWizard({ userId }: { userId: string }) {
           />
 
           {avatarError && (
-            <p
-              className="mb-3 font-sans text-xs text-[#B84A1C] dark:text-[#FF6B2C]"
-              role="alert"
-            >
+            <p className="mb-3 font-sans text-xs text-[#B84A1C] dark:text-[#FF6B2C]" role="alert">
               {avatarError}
             </p>
           )}
 
           {submitError && (
-            <p
-              className="mb-3 font-sans text-sm font-medium text-[#B84A1C] dark:text-[#FF6B2C]"
-              role="alert"
-            >
+            <p className="mb-3 font-sans text-sm font-medium text-[#B84A1C] dark:text-[#FF6B2C]" role="alert">
               {submitError}
             </p>
           )}

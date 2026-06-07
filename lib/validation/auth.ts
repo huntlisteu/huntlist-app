@@ -48,24 +48,67 @@ export const usernameSchema = z.object({
     ),
 });
 
+// URL opzionale: null/stringa vuota → null, stringa non vuota → validata come URL.
+const optionalUrl = z.preprocess(
+  (v) => (v == null || (typeof v === "string" && !v.trim()) ? null : v),
+  z.string().url("Inserisci un URL valido (es. https://...)").nullable().optional(),
+);
+
 // Schema per il flusso onboarding.
-export const completeOnboardingSchema = z.object({
-  username: z
-    .string({ message: "Username obbligatorio" })
-    .trim()
-    .min(3, "Lo username deve avere almeno 3 caratteri")
-    .max(20, "Lo username non può superare i 20 caratteri")
-    .regex(/^[a-zA-Z0-9_]+$/, "Solo lettere, numeri e underscore"),
-  preferred_games: z
-    .array(z.enum([...GAMES] as [string, ...string[]]))
-    .min(1, "Seleziona almeno un gioco"),
-  full_name: z
-    .string()
-    .trim()
-    .max(100, "Il nome non può superare i 100 caratteri")
-    .optional(),
-  avatar_url: z.string().optional(),
-});
+export const completeOnboardingSchema = z
+  .object({
+    username: z
+      .string({ message: "Username obbligatorio" })
+      .trim()
+      .min(3, "Lo username deve avere almeno 3 caratteri")
+      .max(20, "Lo username non può superare i 20 caratteri")
+      .regex(/^[a-zA-Z0-9_]+$/, "Solo lettere, numeri e underscore"),
+    preferred_games: z
+      .array(z.enum([...GAMES] as [string, ...string[]]))
+      .min(1, "Seleziona almeno un gioco"),
+    full_name: z
+      .string()
+      .trim()
+      .max(100, "Il nome non può superare i 100 caratteri")
+      .nullable()
+      .optional(),
+    avatar_url: z.string().nullable().optional(),
+    role: z.enum(["user", "shop", "creator"], {
+      message: "Seleziona un ruolo",
+    }),
+    shop_name: z.string().trim().max(100).nullable().optional(),
+    shop_address: z.string().trim().max(200).nullable().optional(),
+    instagram_url: optionalUrl,
+    tiktok_url: optionalUrl,
+    x_url: optionalUrl,
+  })
+  .superRefine((data, ctx) => {
+    if (data.role === "shop") {
+      if (!data.shop_name?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Nome negozio obbligatorio",
+          path: ["shop_name"],
+        });
+      }
+      if (!data.shop_address?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Indirizzo negozio obbligatorio",
+          path: ["shop_address"],
+        });
+      }
+    }
+    if (data.role === "creator") {
+      if (!data.instagram_url && !data.tiktok_url && !data.x_url) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Inserisci almeno un link social",
+          path: ["instagram_url"],
+        });
+      }
+    }
+  });
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
