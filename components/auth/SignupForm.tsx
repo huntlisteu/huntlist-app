@@ -8,6 +8,7 @@ import {
   signUpWithMagicLink,
   signUpWithPassword,
 } from "@/app/(auth)/signup/actions";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/auth/SubmitButton";
@@ -40,6 +41,18 @@ export function SignupForm() {
 
   return (
     <div className="space-y-6">
+      {/* Google OAuth */}
+      <GoogleAuthButton />
+
+      {/* Separatore */}
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          oppure
+        </span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
       {/* Email + password */}
       <form action={pwAction} className="space-y-4">
         <div className="space-y-2">
