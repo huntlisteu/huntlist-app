@@ -6,6 +6,20 @@ import { NextResponse, type NextRequest } from "next/server";
  * /onboarding gli utenti autenticati che non hanno ancora completato il profilo.
  */
 
+// Route handler di callback OAuth/magic-link: scrivono la sessione nei cookie
+// della LORO NextResponse.redirect (exchangeCodeForSession). Il proxy non deve
+// crearsi un proprio client Supabase su queste richieste — un eventuale
+// refresh/clear della sessione precedente via getUser() finirebbe nel
+// Set-Cookie di un'altra response e si scontrerebbe con quella appena scritta
+// dal callback, sovrascrivendola (causa del bug "feed non autenticato").
+const CALLBACK_PATHS = ["/auth/callback", "/callback"];
+
+function isCallbackPath(pathname: string): boolean {
+  return CALLBACK_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
+
 // Percorsi esclusi dal redirect di onboarding.
 const ONBOARDING_SKIP = [
   "/onboarding",
@@ -25,6 +39,12 @@ function shouldSkipOnboarding(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  // Lascia passare la richiesta intatta: niente client Supabase, niente
+  // possibilita' di scrivere/sovrascrivere cookie qui (vedi commento sopra).
+  if (isCallbackPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
