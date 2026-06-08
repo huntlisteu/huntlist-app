@@ -56,14 +56,30 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user && !shouldSkipOnboarding(request.nextUrl.pathname)) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("onboarding_completed")
       .eq("id", user.id)
       .single();
 
-    // Lascia passare se la query fallisce o restituisce null (fail-open).
-    if (profile && profile.onboarding_completed === false) {
+    if (profileError) {
+      // PGRST116 = nessuna riga: l'utente e' stato cancellato da Supabase ma
+      // il JWT residuo nel cookie e' ancora valido (getUser() lo accetta).
+      // Va sloggato esplicitamente, altrimenti resta intrappolato su /onboarding.
+      if (profileError.code === "PGRST116") {
+        await supabase.auth.signOut();
+
+        const signOutRedirect = NextResponse.redirect(
+          new URL("/login", request.url),
+        );
+        for (const cookie of response.cookies.getAll()) {
+          signOutRedirect.cookies.set(cookie);
+        }
+        return signOutRedirect;
+      }
+
+      // Altri errori: fail-open, lascia passare.
+    } else if (profile && profile.onboarding_completed === false) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }
