@@ -196,7 +196,6 @@ export default async function CartaDettaglioPage({ params }: Props) {
                   alt={card.name}
                   width={200}
                   height={280}
-                  unoptimized
                   className="w-full object-cover"
                   priority
                 />

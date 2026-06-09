@@ -96,7 +96,6 @@ export default async function CartaListaPage({ params, searchParams }: Props) {
                       src={card.image_url}
                       alt={card.name}
                       fill
-                      unoptimized
                       className="object-cover"
                     />
                   </div>

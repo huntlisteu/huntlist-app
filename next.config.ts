@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.ygoprodeck.com',
+      },
+    ],
+  },
   // React Compiler attivo (Next.js 16, stabile). Richiede babel-plugin-react-compiler.
   reactCompiler: true,
   // Fissa la root del workspace su questa cartella: evita che Next inferisca
