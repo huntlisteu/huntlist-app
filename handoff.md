@@ -1,6 +1,8 @@
 # Handoff — Huntlist
 
 > Aggiornato il 2026-06-09. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
+>
+> Ultima sessione: migrazione landing statica in Next.js.
 
 ---
 
@@ -62,6 +64,19 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 - Notifica al seller quando la sua offerta viene accettata
 - Mittente: `RESEND_FROM_EMAIL` (configurato in env)
 
+### Landing page (migrata da sito statico)
+- `app/page.tsx` — server component: controlla auth, redirige a `/dashboard` se loggato, altrimenti renderizza `<LandingClient>`
+- `components/landing/LandingClient.tsx` — client component con tutta la landing: hero, how it works, categories, for who, FAQ, CTA, footer, cookie banner
+  - Bilinguismo EN/IT con switch in nav
+  - Dark mode via `useTheme` (next-themes), integrata con il ThemeProvider del layout
+  - CSS variables scopate a `.hl-landing` per non conflittare con i token Tailwind di `globals.css`
+  - Scroll reveal via IntersectionObserver
+  - Logo usa `<Logo>` (componente brand) → stessa ombra `drop-shadow` del resto dell'app
+- `app/privacy/page.tsx` — pagina `/privacy` standalone (Privacy Policy + Cookie Policy) con stesso pattern CSS scopato
+- `next.config.ts` — aggiunto redirect permanente `app.huntlist.eu → huntlist.eu/:path*`
+- `eslint.config.mjs` — aggiunti browser globals (`window`, `document`, `IntersectionObserver`, ecc.); ignorati `landing-old/**` e `public/sw.js`
+- `/landing-old/` — cartella originale mantenuta come riferimento, non servita da Next.js
+
 ### Altro
 - Profilo pubblico (`/profile/[username]`)
 - Settings (`/settings`) — modifica profilo, cambio email/password
@@ -93,7 +108,8 @@ Trigger rilevanti:
 ## Routing
 
 ```
-/                       → landing page (redirect a /dashboard se loggato)
+/                       → landing page Next.js (redirect a /dashboard se loggato)
+/privacy                → Privacy & Cookie Policy (statica)
 /feed                   → feed pubblico Hunt (pubblico)
 /hunts/new              → crea Hunt (auth)
 /hunts/[id]             → dettaglio Hunt (pubblico)
@@ -139,6 +155,8 @@ RESEND_TEST_EMAIL=                 # override destinatario per test email
 ```
 
 Non esiste ancora una `STRIPE_SECRET_KEY` — Stripe non è implementato.
+
+> **Nota dominio**: il deploy target è `huntlist.eu` (non più `app.huntlist.eu`). Il redirect in `next.config.ts` rimanda `app.huntlist.eu/*` → `huntlist.eu/*` con 301. Aggiornare `NEXT_PUBLIC_SITE_URL` di conseguenza.
 
 ---
 
