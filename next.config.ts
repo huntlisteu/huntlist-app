@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "app.huntlist.eu" }],
+        destination: "https://huntlist.eu/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
