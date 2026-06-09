@@ -1,15 +1,19 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Callback auth per il template email Supabase che usa:
- * {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=...&next=...
+ * Callback auth per:
+ *   - Flusso PKCE (?code=...): Google OAuth e link email con code.
+ *   - Flusso token_hash: magic link, conferma email, recovery.
  *
- * Gestisce sia il flusso PKCE (?code=...) sia il flusso token_hash.
- * Gli errori di recovery vanno a /forgot-password, non a /login.
+ * Nel flusso PKCE la destinazione e' sempre determinata lato server in base
+ * allo stato del profilo — il parametro ?next= viene ignorato per evitare
+ * che valori come ?next=/feed (passati dal bottone OAuth) mandino l'utente
+ * su una pagina con cache RSC stale. Unica eccezione: type=recovery manda
+ * sempre a /update-password indipendentemente dal profilo.
  */
 export async function GET(request: NextRequest): Promise<Response> {
   const { searchParams, origin } = new URL(request.url);
@@ -18,12 +22,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
 
-  // next deve essere un percorso relativo interno per evitare open redirect.
-  const nextParam = searchParams.get("next");
-  const next =
-    nextParam && nextParam.startsWith("/") ? nextParam : "/feed";
-
-  // ── Flusso PKCE (code): OAuth e magic link ─────────────────────────────
+  // ── Flusso PKCE (code): Google OAuth e link email PKCE ─────────────────
   if (code) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -31,31 +30,73 @@ export async function GET(request: NextRequest): Promise<Response> {
       return NextResponse.redirect(`${origin}/login?error=auth`);
     }
 
-    // La response di redirect e' l'oggetto che il browser ricevera': il client
-    // SSR va legato direttamente a QUESTA response (cookies.set scrive su di
-    // essa), non a next/headers — altrimenti exchangeCodeForSession scrive la
-    // sessione su un cookie store che non viene copiato nel Set-Cookie del
-    // redirect, e l'utente arriva al feed risultando non autenticato.
-    const response = NextResponse.redirect(`${origin}${next}`);
+    // I cookie scritti da exchangeCodeForSession e getUser vengono raccolti e
+    // applicati alla response finale: la destinazione dipende dalla query sul
+    // profilo, quindi costruiamo la response solo dopo aver letto tutto.
+    const sessionCookies: Array<{
+      name: string;
+      value: string;
+      options?: CookieOptions;
+    }> = [];
+
     const supabase = createServerClient(url, key, {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
+          sessionCookies.push(...cookiesToSet);
         },
       },
     });
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
+    function redirectTo(path: string): NextResponse {
+      const response = NextResponse.redirect(`${origin}${path}`);
+      for (const { name, value, options } of sessionCookies) {
+        response.cookies.set(name, value, options);
+      }
       return response;
     }
 
-    return type === "recovery"
-      ? NextResponse.redirect(`${origin}/forgot-password?error=link_scaduto`)
-      : NextResponse.redirect(`${origin}/login?error=auth`);
+    const { error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
+
+    if (exchangeError) {
+      return type === "recovery"
+        ? redirectTo("/forgot-password?error=link_scaduto")
+        : redirectTo("/login?error=auth");
+    }
+
+    // REGOLA DI SICUREZZA #1: getUser() ricontatta il server di Auth — non ci
+    // si fida mai della sola sessione nel cookie.
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return redirectTo("/login?error=auth");
+    }
+
+    // Recovery (reset password): ha una sessione recovery, manda alla pagina
+    // di aggiornamento password — indipendentemente dallo stato del profilo.
+    if (type === "recovery") {
+      return redirectTo("/update-password");
+    }
+
+    // Determina la destinazione in base allo stato del profilo.
+    // Il parametro ?next= e' intenzionalmente ignorato nel flusso code: valori
+    // come ?next=/feed causerebbero un redirect su una pagina con cache RSC
+    // stale, rendendo l'utente apparentemente non autenticato.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile || profile.onboarding_completed === false) {
+      return redirectTo("/onboarding");
+    }
+
+    return redirectTo("/dashboard");
   }
 
   // ── token_hash mancante ────────────────────────────────────────────────
@@ -65,10 +106,15 @@ export async function GET(request: NextRequest): Promise<Response> {
       : NextResponse.redirect(`${origin}/login?error=auth`);
   }
 
-  // ── Flusso token_hash (recovery, email OTP) — invariato ────────────────
+  // ── Flusso token_hash (magic link, email OTP, recovery) ────────────────
   if (!type) {
     return NextResponse.redirect(`${origin}/login?error=auth`);
   }
+
+  // ?next= e' rispettato solo qui: i link email sono costruiti lato server
+  // con destinazioni esplicite e affidabili (es. ?next=/dashboard).
+  const nextParam = searchParams.get("next");
+  const safeNext = nextParam && nextParam.startsWith("/") ? nextParam : null;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({
@@ -77,7 +123,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   });
 
   if (!error) {
-    return NextResponse.redirect(`${origin}${next}`);
+    return NextResponse.redirect(`${origin}${safeNext ?? "/dashboard"}`);
   }
 
   return type === "recovery"
