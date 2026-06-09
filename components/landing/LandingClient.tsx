@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useTheme } from "next-themes";
+import { Logo } from "@/components/brand/Logo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -116,7 +116,6 @@ export default function LandingClient() {
   }, []);
 
   const dark = mounted && resolvedTheme === "dark";
-  const logoSrc = dark ? "/logo_dark.svg" : "/logo_light.svg";
 
   function setLang(l: Lang) {
     setLangState(l);
@@ -310,9 +309,7 @@ export default function LandingClient() {
             onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}
             style={{ display: "flex", alignItems: "center", textDecoration: "none" }}
           >
-            {mounted && (
-              <Image src={logoSrc} alt="Huntlist" width={120} height={32} style={{ height: 32, width: "auto", filter: dark ? "drop-shadow(4px 4px 0px #3A3D38)" : "drop-shadow(4px 4px 0px #000000)" }} />
-            )}
+            <Logo width={120} height={32} />
           </a>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -752,7 +749,7 @@ export default function LandingClient() {
         {/* ── FOOTER ───────────────────────────────────────────────────────── */}
         <footer style={{ padding: "28px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "2px solid var(--hl-border)", flexWrap: "wrap", gap: 12, background: "var(--hl-bg)", transition: "background 0.2s" }}>
           <a href="#top" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-            {mounted && <Image src={logoSrc} alt="Huntlist" width={100} height={28} style={{ height: 28, width: "auto", filter: dark ? "drop-shadow(4px 4px 0px #3A3D38)" : "drop-shadow(4px 4px 0px #000000)" }} />}
+            <Logo width={100} height={28} />
           </a>
           <p style={{ fontSize: 13, color: "var(--hl-ink-light)" }}>© 2025 Huntlist</p>
           <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
