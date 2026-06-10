@@ -6,6 +6,7 @@ loadEnv({ path: '.env.local' })
 type PokemonCard = {
   id: string
   name: string
+  number?: string
   supertype?: string
   hp?: string
   attacks?: Array<{ damage?: string }>
@@ -52,7 +53,7 @@ function mapCard(card: PokemonCard): CardInsert {
   const parsedHp = card.hp ? parseInt(card.hp, 10) : null
 
   return {
-    slug: slugify(card.name),
+    slug: slugify(`${card.name} ${card.set?.name ?? ''} ${card.number ?? ''}`),
     game: 'pokemon',
     name: card.name,
     image_url: card.images?.large ?? card.images?.small ?? null,
