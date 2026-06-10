@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.ygoprodeck.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.pokemontcg.io',
+      },
     ],
   },
   // React Compiler attivo (Next.js 16, stabile). Richiede babel-plugin-react-compiler.
