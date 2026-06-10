@@ -17,6 +17,7 @@ type YGOCard = {
     set_code: string
     set_rarity: string
     set_rarity_code: string
+    set_card_number: string
   }>
   card_images: Array<{ image_url: string }>
 }
@@ -49,6 +50,7 @@ type PrintingInsert = {
   card_id: string
   set_name: string
   set_code: string
+  set_number: string
   rarity: string
   rarity_code: string
 }
@@ -135,15 +137,21 @@ async function main() {
   const json = (await response.json()) as YGOApiResponse
   const cards = json.data
   const mapped = cards.map(mapCard)
-  const total = mapped.length
+  const deduped = Array.from(
+    mapped.reduce((map, card) => {
+      if (!map.has(card.slug)) map.set(card.slug, card)
+      return map
+    }, new Map<string, CardInsert>()).values()
+  )
+  const total = deduped.length
 
   console.log(`${total} carte da importare.`)
 
   let imported = 0
   let errors = 0
 
-  for (let i = 0; i < mapped.length; i += BATCH_SIZE) {
-    const batch = mapped.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < deduped.length; i += BATCH_SIZE) {
+    const batch = deduped.slice(i, i + BATCH_SIZE)
     const { error } = await supabase
       .from('cards')
       .upsert(batch, { onConflict: 'game,slug' })
@@ -155,7 +163,7 @@ async function main() {
       imported += batch.length
     }
 
-    if ((i / BATCH_SIZE + 1) % 10 === 0 || i + BATCH_SIZE >= mapped.length) {
+    if ((i / BATCH_SIZE + 1) % 10 === 0 || i + BATCH_SIZE >= deduped.length) {
       console.log(`Importate ${Math.min(imported + errors * BATCH_SIZE, total)}/${total} carte...`)
     }
   }
@@ -179,6 +187,7 @@ async function main() {
         card_id: cardId,
         set_name: set.set_name,
         set_code: set.set_code,
+        set_number: set.set_card_number,
         rarity: set.set_rarity,
         rarity_code: set.set_rarity_code,
       })
@@ -195,7 +204,7 @@ async function main() {
     const batch = printings.slice(i, i + BATCH_SIZE)
     const { error } = await supabase
       .from('card_printings')
-      .upsert(batch, { onConflict: 'card_id,set_code,rarity_code' })
+      .upsert(batch, { onConflict: 'card_id,set_number,rarity_code' })
 
     if (error) {
       console.error(`Errore batch stampe ${i + 1}-${i + batch.length}: ${error.message}`)
