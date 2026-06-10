@@ -39,6 +39,25 @@ function IconPlus() {
   );
 }
 
+function IconCarte() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="4" y="2.5" width="13" height="18" rx="2" />
+      <path d="M20.5 7v11a3 3 0 0 1-3 3H9" />
+    </svg>
+  );
+}
+
 function IconDashboard() {
   return (
     <svg
@@ -91,6 +110,12 @@ export function BottomNav() {
       <Link href="/feed" className={tabCls("/feed")} aria-label="Feed">
         <IconFeed />
         <span>Feed</span>
+      </Link>
+
+      {/* Carte */}
+      <Link href="/carte" className={tabCls("/carte")} aria-label="Carte">
+        <IconCarte />
+        <span>Carte</span>
       </Link>
 
       {/* Nuova Hunt — bottone centrale elevato */}

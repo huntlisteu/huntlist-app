@@ -2,7 +2,7 @@
 
 > Aggiornato il 2026-06-10. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
 >
-> Ultima sessione: catalogo carte SEO (`/[game]/carte`) + import/sync carte Yu-Gi-Oh e Pokémon.
+> Ultima sessione: ristrutturazione catalogo carte sotto `/carte` (hub giochi + griglia con ricerca/filtri client-side + redirect 301 dai vecchi URL).
 
 ---
 
@@ -24,6 +24,7 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 | 3 | Core loop (Hunt, Offerte, Chat, Email) | ✅ Completa |
 | 4 | Stripe Connect + commissione 5% | ⏳ Da fare |
 | — | Catalogo carte SEO (Yu-Gi-Oh + Pokémon) | ✅ Completa (One Piece da fare) |
+| — | Hub `/carte` + griglia con ricerca e filtri chip | ✅ Completa |
 
 ---
 
@@ -78,18 +79,27 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 - `eslint.config.mjs` — aggiunti browser globals (`window`, `document`, `IntersectionObserver`, ecc.); ignorati `landing-old/**` e `public/sw.js`
 - `/landing-old/` — cartella originale mantenuta come riferimento, non servita da Next.js
 
-### Catalogo carte SEO
-- `app/[game]/carte/page.tsx` — griglia pubblica delle carte per gioco (`pokemon | one_piece | yugioh`), 48 per pagina, paginazione "Carica altre" via `?pagina=N`, `notFound()` se game non valido o griglia vuota gestita senza errori
-- `app/[game]/carte/[slug]/page.tsx` — pagina dettaglio carta:
-  - breadcrumb `{Gioco} → Carte → {Nome carta}`
-  - layout immagine 200px a sinistra (desktop) / stacked (mobile)
-  - stat box per gioco: ATK/DEF/Livello (yugioh), HP/Danno (pokemon), Potere/Costo (one_piece)
-  - box "hunt attive" (count da `hunt_cards` join `hunts` con `status = 'open'`) + CTA "Vedi tutte"
-  - due CTA: "Aggiungi alla tua Hunt" → `/hunts/new?card=...`, "Ho questa carta — Fai offerta" → `/hunts?card=...`
-  - `generateMetadata` (title/description/OG) + JSON-LD `Product`/`AggregateOffer`
-  - `notFound()` se carta non esiste
-- `app/[game]/carte/[slug]/CardClient.tsx` — client component, incrementa `views` al mount via RPC `increment_card_views`, mostra "N visualizzazioni questo mese"
-- `next.config.ts` — `images.remotePatterns` per `images.ygoprodeck.com` e `images.pokemontcg.io` (no `unoptimized`)
+### Catalogo carte (ristrutturato 2026-06-10: da `/[game]/carte` a `/carte/[game]`)
+
+**File creati:**
+- `app/carte/page.tsx` — hub selezione gioco (pubblico, no auth check): conta le carte per gioco con `Promise.all` (`count: 'exact', head: true`), tre card neobrutalist cliccabili → `/carte/{game}`
+- `app/carte/layout.tsx` — layout che renderizza `AppNavbar` + `BottomNav` (stesso pattern del layout `(app)`, ma senza redirect se non loggato): senza questo le pagine carte erano un dead-end senza navigazione
+- `app/carte/[game]/page.tsx` — server wrapper: valida `game` con `GAMES` (`notFound()` se invalido), `generateMetadata` dinamico, fetch in parallelo dei valori distinti `archetype`/`card_type`/`set_name` e li passa a `CarteClient`
+- `app/carte/[game]/CarteClient.tsx` — client component: ricerca con debounce 300ms (min 2 caratteri, `ilike`), tre sezioni di chip filtri (label per gioco: YGO Archetipo/Tipo carta/Set, Pokémon Tipo elemento/Categoria/Set, One Piece Colore/Tipo carta/Set; sezioni vuote nascoste), griglia 2/4 colonne, paginazione "Carica altre" da 48, skeleton loading, `AbortController` su ogni fetch, reset pagina a 0 al cambio di query/filtro
+- `app/carte/[game]/[slug]/page.tsx` + `CardClient.tsx` — dettaglio carta spostato dalla vecchia posizione, invariato salvo: breadcrumb `Carte → {Gioco} → {Nome}`, CTA "Vedi tutte"/"Fai offerta" ora puntano a `/feed?card=...&game=...` (i vecchi target `/{game}/hunts` e `/hunts` erano route inesistenti → 404)
+
+**File modificati:**
+- `components/layout/AppNavbar.tsx` — link "Carte" → `/carte` nel nav desktop, visibile anche da sloggati (Feed/Dashboard restano solo per loggati)
+- `components/layout/BottomNav.tsx` — tab "Carte" con icona, tra Feed e il bottone "+"
+- `next.config.ts` — redirect 301 `/:game(yugioh|pokemon|one_piece)/carte` → `/carte/:game` e `/:game(...)/carte/:slug` → `/carte/:game/:slug` (il vincolo regex evita loop su `/carte/carte/...`); aggiunto `images.scrydex.com` ai `remotePatterns`
+
+**File eliminati:** `app/[game]/` (intera cartella: vecchia griglia e vecchio dettaglio).
+
+**Decisioni tecniche / fix trovati in verifica:**
+- la query della griglia ordina per `name` **e poi `id`**: senza tiebreaker l'ordinamento non è totale (molti nomi duplicati, soprattutto Pokémon) e le pagine successive ripescavano righe già viste → chiavi React duplicate
+- ~628 carte Pokémon hanno `image_url` su `images.scrydex.com` (le altre su `images.pokemontcg.io`): host aggiunto a `next.config.ts`, altrimenti `next/image` lancia errore a runtime e la pagina cade sull'error boundary
+- per Pokémon `archetype` è sempre `null` (l'import valorizza solo `card_type` = supertype) → la sezione "Tipo elemento" oggi non compare; comparirà quando l'import popolerà il campo
+- i valori distinti dei filtri sono calcolati lato server senza `SELECT DISTINCT` (PostgREST non lo espone e tronca ogni risposta a 1000 righe): `fetchDistinct` fa un count e poi scarica la colonna a chunk da 1000 in parallelo (cap 30.000 righe), deduplica via `Set` e tiene il risultato in una cache in memoria con TTL 1h. Con un singolo select da 1000 righe i filtri uscivano monchi (es. "Tipo carta" YGO con 1 solo valore). Per cataloghi molto più grandi conviene comunque una RPC `SELECT DISTINCT` dedicata
 
 ### Import e sync carte
 - `scripts/import-yugioh.ts` — import one-shot da YGOPRODeck (`cardinfo.php?misc=yes`, ~14.272 carte):
@@ -165,8 +175,10 @@ Trigger rilevanti:
 /forgot-password        → richiesta reset password
 /update-password        → set nuova password (sessione recovery)
 
-/[game]/carte           → griglia carte per gioco (pubblico, pokemon|one_piece|yugioh)
-/[game]/carte/[slug]    → dettaglio carta + JSON-LD (pubblico)
+/carte                  → hub selezione gioco (pubblico)
+/carte/[game]           → griglia carte con ricerca + filtri chip (pubblico, yugioh|pokemon|one_piece)
+/carte/[game]/[slug]    → dettaglio carta + JSON-LD (pubblico)
+/[game]/carte[/slug]    → redirect 301 ai path sopra (next.config.ts)
 /api/sync-cards         → GET, sync notturno carte (CRON_SECRET, ?game=yugioh|pokemon)
 ```
 

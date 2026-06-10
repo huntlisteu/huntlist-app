@@ -115,16 +115,21 @@ export function AppNavbar({ isLoggedIn, profile }: AppNavbarProps) {
         </Link>
 
         {/* ── Centro: link desktop ────────────────────────────────────── */}
-        {isLoggedIn && (
-          <nav className="hidden md:flex items-center gap-1">
-            <NavLink href="/feed" active={isActive("/feed")}>
-              Feed
-            </NavLink>
-            <NavLink href="/dashboard" active={isActive("/dashboard")}>
-              Dashboard
-            </NavLink>
-          </nav>
-        )}
+        <nav className="hidden md:flex items-center gap-1">
+          {isLoggedIn && (
+            <>
+              <NavLink href="/feed" active={isActive("/feed")}>
+                Feed
+              </NavLink>
+              <NavLink href="/dashboard" active={isActive("/dashboard")}>
+                Dashboard
+              </NavLink>
+            </>
+          )}
+          <NavLink href="/carte" active={isActive("/carte")}>
+            Carte
+          </NavLink>
+        </nav>
 
         {/* ── Destra ──────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 ml-auto md:ml-0">

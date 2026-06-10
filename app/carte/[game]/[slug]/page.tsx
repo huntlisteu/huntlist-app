@@ -168,18 +168,15 @@ export default async function CartaDettaglioPage({ params }: Props) {
           className="flex items-center gap-2 text-sm text-muted-foreground mb-8"
           aria-label="Breadcrumb"
         >
-          <Link
-            href={`/${typedGame}`}
-            className="hover:text-foreground transition-colors"
-          >
-            {GAME_LABEL[typedGame]}
+          <Link href="/carte" className="hover:text-foreground transition-colors">
+            Carte
           </Link>
           <span aria-hidden="true">→</span>
           <Link
-            href={`/${typedGame}/carte`}
+            href={`/carte/${typedGame}`}
             className="hover:text-foreground transition-colors"
           >
-            Carte
+            {GAME_LABEL[typedGame]}
           </Link>
           <span aria-hidden="true">→</span>
           <span className="text-foreground font-medium truncate">{card.name}</span>
@@ -254,7 +251,9 @@ export default async function CartaDettaglioPage({ params }: Props) {
                     : 'utenti la stanno cercando'}
                 </p>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/${typedGame}/hunts?card=${card.slug}`}>Vedi tutte</Link>
+                  <Link href={`/feed?card=${card.slug}&game=${typedGame}`}>
+                    Vedi tutte
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -267,7 +266,7 @@ export default async function CartaDettaglioPage({ params }: Props) {
                 </Link>
               </Button>
               <Button variant="ember" asChild>
-                <Link href={`/hunts?card=${card.slug}&game=${typedGame}`}>
+                <Link href={`/feed?card=${card.slug}&game=${typedGame}`}>
                   Ho questa carta — Fai offerta
                 </Link>
               </Button>
