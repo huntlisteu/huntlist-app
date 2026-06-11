@@ -16,7 +16,7 @@ const SITE_URL = 'https://www.huntlist.eu'
  * `{ id }`), quindi un unico `app/cards/[game]/sitemap.ts` non saprebbe quale
  * gioco rendere: il gioco va fissato staticamente file per file.
  */
-export const SITEMAP_BATCH_SIZE = 40000
+export const SITEMAP_BATCH_SIZE = 5000
 const PAGE_SIZE = 1000
 
 function adminClient() {
