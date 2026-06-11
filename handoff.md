@@ -2,7 +2,7 @@
 
 > Aggiornato il 2026-06-10. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
 >
-> Ultima sessione: ristrutturazione catalogo carte sotto `/carte` (hub giochi + griglia con ricerca/filtri client-side + redirect 301 dai vecchi URL).
+> Ultima sessione: sitemap XML (statiche + ~39k pagine carta) e robots.txt nativi App Router. Sessione precedente: ristrutturazione catalogo carte sotto `/carte` (hub giochi + griglia con ricerca/filtri client-side + redirect 301 dai vecchi URL).
 
 ---
 
@@ -25,6 +25,7 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 | 4 | Stripe Connect + commissione 5% | ⏳ Da fare |
 | — | Catalogo carte SEO (Yu-Gi-Oh + Pokémon) | ✅ Completa (One Piece da fare) |
 | — | Hub `/carte` + griglia con ricerca e filtri chip | ✅ Completa |
+| — | Sitemap XML + robots.txt | ✅ Completa |
 
 ---
 
@@ -100,6 +101,19 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 - ~628 carte Pokémon hanno `image_url` su `images.scrydex.com` (le altre su `images.pokemontcg.io`): host aggiunto a `next.config.ts`, altrimenti `next/image` lancia errore a runtime e la pagina cade sull'error boundary
 - per Pokémon `archetype` è sempre `null` (l'import valorizza solo `card_type` = supertype) → la sezione "Tipo elemento" oggi non compare; comparirà quando l'import popolerà il campo
 - i valori distinti dei filtri sono calcolati lato server senza `SELECT DISTINCT` (PostgREST non lo espone e tronca ogni risposta a 1000 righe): `fetchDistinct` fa un count e poi scarica la colonna a chunk da 1000 in parallelo (cap 30.000 righe), deduplica via `Set` e tiene il risultato in una cache in memoria con TTL 1h. Con un singolo select da 1000 righe i filtri uscivano monchi (es. "Tipo carta" YGO con 1 solo valore). Per cataloghi molto più grandi conviene comunque una RPC `SELECT DISTINCT` dedicata
+
+### Sitemap e robots.txt (2026-06-11)
+
+**File creati:**
+- `app/sitemap.ts` — sitemap delle pagine statiche/pubbliche su `/sitemap.xml` (home, `/carte`, i tre cataloghi, `/feed`, `/privacy`) con `changeFrequency`/`priority`
+- `app/carte/sitemap.ts` — sitemap delle pagine carta su `/carte/sitemap.xml`: ~38.866 URL, query Supabase paginata da 1000 con **ordinamento totale su `slug`** (senza, `range` può saltare/duplicare righe), `lastModified` da `updated_at`, `export const revalidate = 86400` (il catalogo cambia solo col sync notturno). Usa `createClient` da `@supabase/supabase-js` con `SUPABASE_SECRET_KEY` (file solo server, mai importato dal client; la publishable key ha rate limit più bassi)
+- `app/robots.ts` — robots.txt nativo su `/robots.txt`: disallow sulle route autenticate **reali** (`/dashboard`, `/onboarding`, `/settings`, `/offers/`, `/hunts/new`, `/hunts/*/edit`, `/hunts/*/offer`, `/api/`, `/auth/`, `/callback`, pagine auth) e dichiara entrambe le sitemap
+
+**Decisioni tecniche:**
+- **`next-sitemap` NON installato**, in deviazione dalla spec: genera `public/sitemap.xml` in postbuild dal manifest di build, quindi (a) non vedrebbe le 34k+ pagine carta SSR dinamiche, (b) il file in `public/` andrebbe in conflitto con la route `/sitemap.xml` di `app/sitemap.ts`. Le metadata route native dell'App Router coprono tutto (sitemap, robots, esclusioni) senza dipendenze né script `postbuild` — `package.json` è rimasto intatto
+- la spec proponeva disallow su `/offerte` e `/profilo/*`, path che non esistono: usate le route reali; i profili (`/profile/[username]`) sono pubblici e restano indicizzabili
+- sitemap carte: 7,1 MB e ~39k URL, sotto i limiti Google (50k URL / 50 MB per file). **Quando l'import One Piece porterà il totale vicino a 50k**, passare a `generateSitemaps()` (chunking nativo Next) e dichiarare i chunk in `app/robots.ts`
+- in produzione serve `SUPABASE_SECRET_KEY` tra le env Vercel (già richiesta da import/sync)
 
 ### Import e sync carte
 - `scripts/import-yugioh.ts` — import one-shot da YGOPRODeck (`cardinfo.php?misc=yes`, ~14.272 carte):
@@ -179,6 +193,9 @@ Trigger rilevanti:
 /carte/[game]           → griglia carte con ricerca + filtri chip (pubblico, yugioh|pokemon|one_piece)
 /carte/[game]/[slug]    → dettaglio carta + JSON-LD (pubblico)
 /[game]/carte[/slug]    → redirect 301 ai path sopra (next.config.ts)
+/sitemap.xml            → sitemap pagine statiche (app/sitemap.ts)
+/carte/sitemap.xml      → sitemap pagine carta, ~39k URL (app/carte/sitemap.ts, revalidate 24h)
+/robots.txt             → robots nativo con disallow route private (app/robots.ts)
 /api/sync-cards         → GET, sync notturno carte (CRON_SECRET, ?game=yugioh|pokemon)
 ```
 
