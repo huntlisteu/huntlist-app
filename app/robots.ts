@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { listCardSitemapUrls } from '@/lib/cardSitemap'
 
-const SITE_URL = 'https://huntlist.eu'
+const SITE_URL = 'https://www.huntlist.eu'
 
 /**
  * robots.txt nativo App Router (servito su /robots.txt). I disallow coprono

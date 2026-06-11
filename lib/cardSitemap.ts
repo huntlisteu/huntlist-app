@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GAMES, type Game } from '@/lib/tcg'
 
-const SITE_URL = 'https://huntlist.eu'
+const SITE_URL = 'https://www.huntlist.eu'
 
 /**
  * Numero massimo di URL per file sitemap. Google ne ammette 50.000;

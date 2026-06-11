@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const SITE_URL = 'https://huntlist.eu'
+const SITE_URL = 'https://www.huntlist.eu'
 
 /**
  * Sitemap delle pagine statiche/pubbliche, servita su /sitemap.xml.
