@@ -9,6 +9,7 @@ const GAME_LABEL: Record<Game, string> = {
   yugioh: 'Yu-Gi-Oh!',
   pokemon: 'Pokémon TCG',
   one_piece: 'One Piece TCG',
+  magic: 'Magic: The Gathering',
 }
 
 type Props = {

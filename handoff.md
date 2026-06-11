@@ -116,6 +116,21 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 - le label visibili in navbar/bottom nav restano "Feed" e "Carte" (decisione copy non presa in questa sessione: i link puntano a `/market` e `/cards`)
 - i componenti si chiamano ancora `CarteClient`/`CardClient` (solo i path URL sono stati rinominati)
 
+### Aggiunto Magic: The Gathering come quarto gioco (2026-06-11)
+
+**File modificati:**
+- `lib/tcg.ts` — `'magic'` aggiunto a `GAMES`, `GAME_LABELS` ("Magic: The Gathering"); aggiunto export `TCG_META` (emoji per gioco, 🧙 per Magic)
+- `app/cards/page.tsx` — quarta card hub "Magic: The Gathering" (0 carte finché non si importa); griglia passata da `md:grid-cols-3` a `md:grid-cols-2 lg:grid-cols-4`
+- `app/cards/[game]/page.tsx`, `app/cards/[game]/[slug]/page.tsx`, `app/cards/[game]/CarteClient.tsx` — aggiunta voce `magic` ai `Record<Game, ...>` locali (`GAME_LABEL`, `FILTER_LABELS`) per allineamento col tipo `Game` esteso
+- `components/auth/OnboardingWizard.tsx`, `app/(app)/settings/SettingsClient.tsx` — aggiunta voce `magic` ai `TCG_META` locali (duplicati, non ancora consolidati con quello di `lib/tcg.ts`)
+
+**Verificato senza modifiche:** `completeOnboardingSchema` (`lib/validation/auth.ts`) e `updatePreferredGamesSchema` (`settings/actions.ts`) usano `z.enum([...GAMES])` → accettano `'magic'` automaticamente.
+
+**Note:**
+- L'enum Postgres `game_type` ha già il valore `'magic'` (fatto in sessione precedente)
+- Nessun import/sync carte Magic ancora implementato — `/cards/magic` mostra 0 carte
+- Debito tecnico minore: `TCG_META` è duplicato in tre posti (`lib/tcg.ts`, `OnboardingWizard.tsx`, `SettingsClient.tsx`); da consolidare su un'unica fonte in futuro
+
 ### Sitemap e robots.txt (2026-06-11)
 
 **File creati:**
@@ -204,7 +219,7 @@ Trigger rilevanti:
 /update-password        → set nuova password (sessione recovery)
 
 /cards                  → hub selezione gioco (pubblico)
-/cards/[game]           → griglia carte con ricerca + filtri chip (pubblico, yugioh|pokemon|one_piece)
+/cards/[game]           → griglia carte con ricerca + filtri chip (pubblico, yugioh|pokemon|one_piece|magic)
 /cards/[game]/[slug]    → dettaglio carta + JSON-LD (pubblico)
 /carte/:path*           → redirect 301 a /cards/:path* (next.config.ts)
 /feed[/:path*]          → redirect 301 a /market[/:path*] (next.config.ts)

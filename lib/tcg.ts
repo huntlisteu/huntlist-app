@@ -3,13 +3,21 @@
  * Fonte unica per liste (form/select) ed etichette in italiano (UI).
  */
 
-export const GAMES = ["pokemon", "one_piece", "yugioh"] as const;
+export const GAMES = ["pokemon", "one_piece", "yugioh", "magic"] as const;
 export type Game = (typeof GAMES)[number];
 
 export const GAME_LABELS: Record<Game, string> = {
   pokemon: "Pokémon",
   one_piece: "One Piece",
   yugioh: "Yu-Gi-Oh!",
+  magic: "Magic: The Gathering",
+};
+
+export const TCG_META: Record<Game, { emoji: string }> = {
+  pokemon: { emoji: "🎴" },
+  one_piece: { emoji: "⚓" },
+  yugioh: { emoji: "⚔️" },
+  magic: { emoji: "🧙" },
 };
 
 export const CARD_CONDITIONS = [

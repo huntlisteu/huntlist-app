@@ -72,6 +72,7 @@ const TCG_META: Record<Game, { emoji: string }> = {
   pokemon: { emoji: "🎴" },
   one_piece: { emoji: "⚓" },
   yugioh: { emoji: "⚔️" },
+  magic: { emoji: "🧙" },
 };
 
 const ROLE_META: Record<Role, { emoji: string; label: string; description: string }> = {

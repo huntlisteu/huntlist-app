@@ -6,7 +6,7 @@ import type { Game } from '@/lib/tcg'
 export const metadata: Metadata = {
   title: 'Carte TCG | Huntlist',
   description:
-    'Esplora il catalogo carte di Huntlist: Yu-Gi-Oh!, Pokémon TCG e One Piece TCG. Trova la carta che cerchi e pubblica la tua Hunt.',
+    'Esplora il catalogo carte di Huntlist: Yu-Gi-Oh!, Pokémon TCG, One Piece TCG e Magic: The Gathering. Trova la carta che cerchi e pubblica la tua Hunt.',
 }
 
 type HubGame = {
@@ -30,6 +30,11 @@ const HUB_GAMES: HubGame[] = [
     game: 'one_piece',
     label: 'One Piece TCG',
     tagline: 'Leader, personaggi ed eventi',
+  },
+  {
+    game: 'magic',
+    label: 'Magic: The Gathering',
+    tagline: 'Creature, stregonerie e piani infiniti',
   },
 ]
 
@@ -61,7 +66,7 @@ export default async function CarteHubPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {HUB_GAMES.map(({ game, label, tagline }, index) => (
           <Link
             key={game}

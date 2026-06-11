@@ -33,6 +33,7 @@ const FILTER_LABELS: Record<Game, { archetipo: string; tipo: string; set: string
   yugioh: { archetipo: 'Archetipo', tipo: 'Tipo carta', set: 'Set' },
   pokemon: { archetipo: 'Tipo elemento', tipo: 'Categoria', set: 'Set' },
   one_piece: { archetipo: 'Colore', tipo: 'Tipo carta', set: 'Set' },
+  magic: { archetipo: 'Colore', tipo: 'Tipo carta', set: 'Set' },
 }
 
 function truncateChip(value: string): string {
