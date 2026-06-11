@@ -1,6 +1,14 @@
 #!/usr/bin/env node --max-old-space-size=4096
+import { createReadStream, createWriteStream } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { config as loadEnv } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
+import streamArray from 'stream-json/streamers/stream-array.js'
 
 loadEnv({ path: '.env.local' })
 
@@ -103,7 +111,12 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
     const isLastAttempt = attempt === retries - 1
 
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Huntlist/1.0 (huntlist.eu)',
+          'Accept': 'application/json',
+        },
+      })
 
       if (response.ok || isLastAttempt || (response.status !== 500 && response.status !== 504)) {
         return response
@@ -156,26 +169,48 @@ async function main() {
   console.log(`Scaricando default_cards da ${defaultCards.download_uri}...`)
 
   const bulkResponse = await fetchWithRetry(defaultCards.download_uri)
-  if (!bulkResponse.ok) {
+  if (!bulkResponse.ok || !bulkResponse.body) {
     console.error(`Errore download bulk data: ${bulkResponse.status} ${bulkResponse.statusText}`)
     process.exit(1)
   }
 
-  const cards = (await bulkResponse.json()) as ScryfallCard[]
-  console.log(`${cards.length} carte scaricate da Scryfall.`)
+  // Il file bulk di Scryfall e' troppo grande (~545MB) per essere caricato
+  // interamente in memoria con response.json() (ERR_STRING_TOO_LONG): viene
+  // salvato su disco e poi processato in streaming, una carta alla volta.
+  const tmpDir = await mkdtemp(join(tmpdir(), 'huntlist-magic-'))
+  const bulkFilePath = join(tmpDir, 'default-cards.json')
+
+  await pipeline(
+    Readable.fromWeb(bulkResponse.body as unknown as NodeReadableStream<Uint8Array>),
+    createWriteStream(bulkFilePath),
+  )
+  console.log('Download completato. Parsing in streaming...')
 
   const mapped: CardInsert[] = []
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i]
-    if (isImportableCard(card)) {
-      for (const finish of card.finishes) {
-        mapped.push(mapCard(card, finish))
+  let processed = 0
+
+  await new Promise<void>((resolve, reject) => {
+    const jsonStream = createReadStream(bulkFilePath).pipe(streamArray.withParserAsStream())
+
+    jsonStream.on('data', ({ value }: { value: unknown }) => {
+      const card = value as ScryfallCard
+      if (isImportableCard(card)) {
+        for (const finish of card.finishes) {
+          mapped.push(mapCard(card, finish))
+        }
       }
-    }
-    if ((i + 1) % 1000 === 0) {
-      console.log(`Processate ${i + 1}/${cards.length} carte (${mapped.length} righe finora)...`)
-    }
-  }
+      processed++
+      if (processed % 1000 === 0) {
+        console.log(`Processate ${processed} carte (${mapped.length} righe finora)...`)
+      }
+    })
+    jsonStream.on('end', () => resolve())
+    jsonStream.on('error', reject)
+  })
+
+  await rm(tmpDir, { recursive: true, force: true })
+
+  console.log(`${processed} carte processate da Scryfall.`)
 
   const deduped = Array.from(
     mapped.reduce((map, card) => {
