@@ -9,12 +9,14 @@ type OPTCGCard = {
   card_name: string
   card_text: string | null
   set_id: string | null
+  set_name: string | null
   rarity: string | null
   card_color: string | null
   card_type: string | null
   card_power: string | null
   card_cost: string | null
   card_image: string | null
+  sub_types: string | null
 }
 
 type CardInsert = {
@@ -27,6 +29,7 @@ type CardInsert = {
   rarity: string | null
   card_type: string | null
   archetype: string | null
+  affiliation: string | null
   atk: null
   def: null
   level: null
@@ -54,10 +57,11 @@ function mapCard(card: OPTCGCard): CardInsert {
     name: card.card_name,
     image_url: card.card_image ?? null,
     description: card.card_text ?? null,
-    set_name: card.set_id ?? null,
+    set_name: card.set_name ?? null,
     rarity: card.rarity ?? null,
     card_type: card.card_type ?? null,
     archetype: card.card_color ?? null,
+    affiliation: card.sub_types ?? null,
     atk: null,
     def: null,
     level: null,
