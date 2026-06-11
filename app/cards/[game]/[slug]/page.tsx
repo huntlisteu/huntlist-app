@@ -17,6 +17,9 @@ type Card = {
   rarity: string | null
   views: number
   set_name: string | null
+  card_type: string | null
+  archetype: string | null
+  affiliation: string | null
   atk: number | null
   def: number | null
   level: number | null
@@ -24,6 +27,21 @@ type Card = {
   damage: string | null
   power: number | null
   cost: number | null
+}
+
+type Printing = {
+  set_name: string | null
+  set_number: string | null
+  rarity: string | null
+}
+
+type RelatedCard = {
+  id: string
+  game: Game
+  slug: string
+  name: string
+  image_url: string | null
+  rarity: string | null
 }
 
 const GAME_LABEL: Record<Game, string> = {
@@ -46,6 +64,116 @@ async function getCard(game: Game, slug: string): Promise<Card | null> {
     .eq('slug', slug)
     .single()
   return (data as Card) ?? null
+}
+
+async function getPrintings(cardId: string): Promise<Printing[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('card_printings')
+    .select('set_name, set_number, rarity')
+    .eq('card_id', cardId)
+    .order('set_name', { ascending: true })
+    .order('set_number', { ascending: true })
+  return (data as Printing[]) ?? []
+}
+
+async function getRelatedCards(card: Card): Promise<RelatedCard[]> {
+  const supabase = await createClient()
+  const columns = 'id, game, slug, name, image_url, rarity'
+
+  if (card.game === 'yugioh') {
+    if (card.archetype) {
+      const { data } = await supabase
+        .from('cards')
+        .select(columns)
+        .eq('game', 'yugioh')
+        .eq('archetype', card.archetype)
+        .neq('id', card.id)
+        .limit(6)
+      return (data as RelatedCard[]) ?? []
+    }
+    if (card.card_type) {
+      const { data } = await supabase
+        .from('cards')
+        .select(columns)
+        .eq('game', 'yugioh')
+        .eq('card_type', card.card_type)
+        .neq('id', card.id)
+        .limit(6)
+      return (data as RelatedCard[]) ?? []
+    }
+    return []
+  }
+
+  if (card.game === 'pokemon') {
+    const { data } = await supabase
+      .from('cards')
+      .select(columns)
+      .eq('game', 'pokemon')
+      .eq('name', card.name)
+      .neq('id', card.id)
+      .limit(6)
+    return (data as RelatedCard[]) ?? []
+  }
+
+  if (card.game === 'magic') {
+    if (card.set_name && card.archetype) {
+      const { data } = await supabase
+        .from('cards')
+        .select(columns)
+        .eq('game', 'magic')
+        .eq('set_name', card.set_name)
+        .eq('archetype', card.archetype)
+        .neq('id', card.id)
+        .limit(6)
+      return (data as RelatedCard[]) ?? []
+    }
+    if (card.set_name) {
+      const { data } = await supabase
+        .from('cards')
+        .select(columns)
+        .eq('game', 'magic')
+        .eq('set_name', card.set_name)
+        .neq('id', card.id)
+        .limit(6)
+      return (data as RelatedCard[]) ?? []
+    }
+    return []
+  }
+
+  // one_piece
+  if (card.archetype && card.affiliation) {
+    const { data } = await supabase
+      .from('cards')
+      .select(columns)
+      .eq('game', 'one_piece')
+      .eq('archetype', card.archetype)
+      .eq('affiliation', card.affiliation)
+      .neq('id', card.id)
+      .limit(6)
+    return (data as RelatedCard[]) ?? []
+  }
+  if (card.archetype) {
+    const { data } = await supabase
+      .from('cards')
+      .select(columns)
+      .eq('game', 'one_piece')
+      .eq('archetype', card.archetype)
+      .neq('id', card.id)
+      .limit(6)
+    return (data as RelatedCard[]) ?? []
+  }
+  if (card.card_type) {
+    const { data } = await supabase
+      .from('cards')
+      .select(columns)
+      .eq('game', 'one_piece')
+      .eq('card_type', card.card_type)
+      .neq('id', card.id)
+      .limit(6)
+    return (data as RelatedCard[]) ?? []
+  }
+  return []
 }
 
 async function getActiveHuntsCount(cardName: string, game: Game): Promise<number> {
@@ -134,6 +262,13 @@ export default async function CartaDettaglioPage({ params }: Props) {
   if (!card) notFound()
 
   const activeHuntsCount = await getActiveHuntsCount(card.name, typedGame)
+
+  const printings = typedGame === 'yugioh' ? await getPrintings(card.id) : []
+
+  const hasRelatedCriteria = Boolean(
+    card.archetype || card.card_type || card.name || card.set_name || card.affiliation
+  )
+  const relatedCards = hasRelatedCriteria ? await getRelatedCards(card) : []
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -274,6 +409,89 @@ export default async function CartaDettaglioPage({ params }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Tutte le edizioni (solo Yu-Gi-Oh!) */}
+        {typedGame === 'yugioh' && printings.length > 0 && (
+          <div className="mt-10 pt-6 border-t border-border">
+            <h2 className="font-heading font-bold text-xl text-foreground mb-4">
+              Tutte le edizioni
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full border-2 border-[#1A1A18] dark:border-[#3A3D38] text-sm">
+                <thead>
+                  <tr className="bg-[#EAE2D4] dark:bg-[#1A1C19]">
+                    <th className="border-2 border-[#1A1A18] dark:border-[#3A3D38] px-3 py-2 text-left font-heading font-bold text-foreground">
+                      Set
+                    </th>
+                    <th className="border-2 border-[#1A1A18] dark:border-[#3A3D38] px-3 py-2 text-left font-heading font-bold text-foreground">
+                      Codice
+                    </th>
+                    <th className="border-2 border-[#1A1A18] dark:border-[#3A3D38] px-3 py-2 text-left font-heading font-bold text-foreground">
+                      Rarità
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {printings.map((printing, index) => (
+                    <tr key={`${printing.set_name}-${printing.set_number}-${printing.rarity}-${index}`}>
+                      <td className="border border-border px-3 py-2 text-foreground">
+                        {printing.set_name ?? '—'}
+                      </td>
+                      <td className="border border-border px-3 py-2 text-foreground">
+                        {printing.set_number ?? '—'}
+                      </td>
+                      <td className="border border-border px-3 py-2 text-muted-foreground">
+                        {printing.rarity ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Carte simili */}
+        {relatedCards.length > 0 && (
+          <div className="mt-10 pt-6 border-t border-border">
+            <h2 className="font-heading font-bold text-xl text-foreground mb-4">
+              Carte simili
+            </h2>
+            <div className="flex overflow-x-auto gap-3 pb-2 [&::-webkit-scrollbar]:hidden">
+              {relatedCards.map((related) => (
+                <Link
+                  key={related.id}
+                  href={`/cards/${related.game}/${related.slug}`}
+                  className="min-w-[120px] flex-shrink-0 rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-card overflow-hidden shadow-[2px_2px_0_#1A1A18] dark:shadow-[2px_2px_0_#3A3D38]"
+                >
+                  {related.image_url ? (
+                    <Image
+                      src={related.image_url}
+                      alt={related.name}
+                      width={120}
+                      height={170}
+                      className="w-full h-[170px] object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-[170px] bg-muted flex items-center justify-center">
+                      <span className="text-muted-foreground text-[10px] text-center px-2">
+                        Nessuna immagine
+                      </span>
+                    </div>
+                  )}
+                  <div className="p-2 space-y-0.5">
+                    <p className="text-xs text-foreground line-clamp-2 leading-tight">
+                      {related.name}
+                    </p>
+                    {related.rarity && (
+                      <p className="text-xs text-muted-foreground">{related.rarity}</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Visualizzazioni */}
         <div className="mt-10 pt-6 border-t border-border">

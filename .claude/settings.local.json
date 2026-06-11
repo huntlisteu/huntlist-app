@@ -19,7 +19,8 @@
       "Bash(curl -s http://localhost:3000/login)",
       "Bash(curl -sL \"https://optcgapi.com/documentation\")",
       "Bash(curl -sL \"https://optcgapi.com/api/allSetCards/\" -o /tmp/optcg.json -w \"%{http_code} %{size_download}\\\\n\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(curl -s \"https://xeuqikkusciglevzbdsr.supabase.co/rest/v1/cards?game=eq.one_piece&select=slug,name,archetype,card_type,affiliation&limit=1\" -H \"apikey: sb_publishable_CfoQBBUKeonC5i5G455kJQ_pXfGE4Wk\")"
     ]
   }
 }

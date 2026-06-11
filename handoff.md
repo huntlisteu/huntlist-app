@@ -153,6 +153,20 @@ npx tsx scripts/import-magic.ts      # decine di migliaia di righe (carta+finish
 ```
 Per il sync incrementale via cron, `app/api/sync-cards?game=one_piece` e `?game=magic` sono pronti ma non testati con chiamata reale (richiede `CRON_SECRET`).
 
+### Pagina dettaglio carta: stampe YGO + carte correlate (2026-06-11)
+
+**File modificati:**
+- `app/cards/[game]/[slug]/page.tsx`
+  - `Card` esteso con `card_type`, `archetype`, `affiliation` (servono alla logica delle correlate)
+  - nuova sezione "Tutte le edizioni" (solo `game === 'yugioh'`): `getPrintings(cardId)` legge `card_printings` (`set_name, set_number, rarity`, ordinate per `set_name, set_number`), tabella neobrutalist (bordo 2px su tabella e celle header, header `bg-[#EAE2D4]`/dark `bg-[#1A1C19]`); non renderizzata se nessuna stampa
+  - nuova sezione "Carte simili": `getRelatedCards(card)` con logica per gioco (YGO: `archetype` poi fallback `card_type`; Pokémon: stesso `name`; Magic: `set_name`+`archetype` poi fallback solo `set_name`; One Piece: `archetype`+`affiliation` poi fallback `archetype` poi `card_type`), `limit(6)`, `neq('id', card.id)`; riga scrollabile orizzontale (`overflow-x-auto [&::-webkit-scrollbar]:hidden`, niente nuovo plugin Tailwind), card 120×170 con `next/image`, bordo 2px + ombra offset 2px, link a `/cards/{game}/{slug}`; non renderizzata se 0 risultati
+  - guardia: se `archetype`, `card_type`, `name`, `set_name` e `affiliation` sono tutti falsy non viene fatta alcuna fetch per le correlate (in pratica `name` è sempre presente, quindi è una guardia difensiva)
+
+**Verifica:** `npm run typecheck` pulito; `npm run lint` stessi 3 errori preesistenti non correlati. Testato via richieste dirette al dev server (il browser preview serve la landing page cacheata dal service worker PWA su ogni navigazione client-side, problema preesistente non legato a questa modifica):
+- `/cards/yugioh/blue-eyes-white-dragon` → "Tutte le edizioni" con righe da `card_printings` + "Carte simili" (6 carte)
+- `/cards/pokemon/brock-s-ninetales-gym-challenge-3` → solo "Carte simili" (altre stampe di "Brock's Ninetales")
+- `/cards/one_piece/op03-084` → nessuna sezione correlate (nessun'altra carta condivide `archetype=Black` + `affiliation=CP6`), comportamento corretto
+
 ### Sitemap e robots.txt (2026-06-11)
 
 **File creati:**
@@ -204,7 +218,8 @@ offers          — l'offerta del venditore (hunt_id, seller_id, price_cents, sh
 offer_items     — le carte dell'offerta (offer_id, card_name, condition, quantity)
 messages        — chat (offer_id, sender_id, content)
 cards           — catalogo carte TCG (game, slug, name, image_url, description, set_name, rarity,
-                  card_type, archetype, atk/def/level, hp/damage, power/cost, external_id, views)
+                  card_type, archetype, affiliation, atk/def/level, hp/damage, power/cost,
+                  external_id, views)
                   ⚠️ non ancora in 0001_init.sql, vedi debito tecnico sopra
 card_printings  — varianti di stampa di una carta (card_id, set_name, set_code, set_number,
                   rarity, rarity_code) — popolata solo per yugioh per ora
