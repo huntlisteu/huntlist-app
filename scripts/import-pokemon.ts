@@ -13,6 +13,7 @@ type PokemonCard = {
   images?: { small?: string; large?: string }
   rarity?: string
   set?: { name?: string }
+  types?: string[]
 }
 
 type PokemonApiResponse = {
@@ -29,6 +30,7 @@ type CardInsert = {
   description: null
   set_name: string | null
   rarity: string | null
+  archetype: string | null
   card_type: string | null
   atk: null
   def: null
@@ -60,6 +62,7 @@ function mapCard(card: PokemonCard): CardInsert {
     description: null,
     set_name: card.set?.name ?? null,
     rarity: card.rarity ?? null,
+    archetype: card.types?.[0] ?? null,
     card_type: card.supertype ?? null,
     atk: null,
     def: null,
