@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { listCardSitemapUrls } from '@/lib/cardSitemap'
 
 const SITE_URL = 'https://huntlist.eu'
 
@@ -6,8 +7,13 @@ const SITE_URL = 'https://huntlist.eu'
  * robots.txt nativo App Router (servito su /robots.txt). I disallow coprono
  * le route autenticate/private reali dell'app; le pagine pubbliche (feed,
  * carte, dettaglio hunt, profili) restano indicizzabili.
+ *
+ * Async perche' enumera i chunk delle sitemap carta per gioco (numero di
+ * chunk calcolato a runtime; Magic puo' superare un chunk).
  */
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const cardSitemaps = await listCardSitemapUrls()
+
   return {
     rules: [
       {
@@ -31,6 +37,8 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/cards/sitemap.xml`],
+    sitemap: [`${SITE_URL}/sitemap.xml`, ...cardSitemaps],
   }
 }
+
+export const revalidate = 86400

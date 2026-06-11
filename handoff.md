@@ -177,8 +177,29 @@ Per il sync incrementale via cron, `app/api/sync-cards?game=one_piece` e `?game=
 **Decisioni tecniche:**
 - **`next-sitemap` NON installato**, in deviazione dalla spec: genera `public/sitemap.xml` in postbuild dal manifest di build, quindi (a) non vedrebbe le 34k+ pagine carta SSR dinamiche, (b) il file in `public/` andrebbe in conflitto con la route `/sitemap.xml` di `app/sitemap.ts`. Le metadata route native dell'App Router coprono tutto (sitemap, robots, esclusioni) senza dipendenze né script `postbuild` — `package.json` è rimasto intatto
 - la spec proponeva disallow su `/offerte` e `/profilo/*`, path che non esistono: usate le route reali; i profili (`/profile/[username]`) sono pubblici e restano indicizzabili
-- sitemap carte: 7,1 MB e ~39k URL, sotto i limiti Google (50k URL / 50 MB per file). **Quando l'import One Piece porterà il totale vicino a 50k**, passare a `generateSitemaps()` (chunking nativo Next) e dichiarare i chunk in `app/robots.ts`
+- sitemap carte: ~39k URL all'epoca. ✅ **Fatto** il passaggio a `generateSitemaps()` per gioco quando il totale ha superato i 50k (Magic 146k) — vedi sezione "Sitemap per gioco con `generateSitemaps`" sopra; `app/cards/sitemap.ts` è stato sostituito
 - in produzione serve `SUPABASE_SECRET_KEY` tra le env Vercel (già richiesta da import/sync)
+
+### Sitemap per gioco con `generateSitemaps` (2026-06-11)
+Sostituita la sitemap carte unica (superava i 50k URL/file di Google: solo Magic ha 146.666 carte, totale ~189k) con **una sitemap per gioco**, chunkata.
+
+**File creati:**
+- `lib/cardSitemap.ts` — helper condiviso: `SITEMAP_BATCH_SIZE = 40000` (margine sotto i 50k); `generateGameSitemaps(game)` conta le carte del gioco e ritorna i chunk `{ id }` (almeno 1); `buildGameSitemap(game, id)` pagina a 1000 con **ordinamento totale su `slug`** e `range`; `resolveSitemapId(id)` normalizza l'`id` (vedi sotto); `listCardSitemapUrls()` enumera tutti gli URL chunk per `robots.txt`. Lettura pagine con **retry su statement timeout** (`fetchPage`): su tabelle grandi gli offset profondi possono andare in timeout — se ignorato, `data` null verrebbe scambiato per "fine righe" e produrrebbe un chunk parziale poi cache-ato 24h da ISR; ora ritenta e, se persiste, **lancia** (route in errore invece di sitemap monca)
+- `app/cards/s/{yugioh,pokemon,one_piece,magic}/sitemap.ts` — 4 route concrete, una per gioco, ognuna col proprio `GAME` fissato; `generateSitemaps()` + default `sitemap({ id })` delegano all'helper; `export const revalidate = 86400`
+
+**File modificati:**
+- `app/sitemap.ts` — invariato nei contenuti (home, `/cards`, i 4 hub gioco, `/market`, `/privacy`); aggiornato solo il commento al nuovo path
+- `app/robots.ts` — ora **async** con `export const revalidate = 86400`: dichiara `/sitemap.xml` + tutti i chunk per gioco via `listCardSitemapUrls()`
+
+**File eliminati:** `app/cards/sitemap.ts` (la vecchia sitemap unica).
+
+**Deviazioni dalla spec — la spec non era implementabile così com'era in Next 16.2.7 (verificato empiricamente):**
+- la spec proponeva un unico `app/cards/[game]/sitemap.ts` che legge `params.game`. **Non funziona**: il loader delle metadata route di Next 16 chiama `generateSitemaps()` **senza argomenti** e il handler `sitemap()` con **solo `{ id }`** — i `params` del segmento dinamico NON vengono inoltrati (log provati: `generateSitemaps arg = undefined`, `sitemap arg = {"id":{}}`). Quindi il gioco va **fissato staticamente file per file** → 4 route, non 1
+- inoltre `/cards/{game}/sitemap.xml` collide con la route `[slug]` (interpretato come carta con slug `sitemap.xml` → 404). Le sitemap per gioco vivono perciò sotto un segmento che non collide: **`/cards/s/{game}/...`**
+- Next 16 **non** espone un indice a `/cards/s/{game}/sitemap.xml` (404): sono validi solo i chunk numerati `/cards/s/{game}/sitemap/{id}.xml`, perciò `robots.txt` li elenca tutti uno per uno (non l'indice)
+- `id` arriva al handler come **Promise** (non come `number` come da doc): `resolveSitemapId` await-a e fa `parseInt`
+
+**Verifica (dev server, conteggi confrontati col DB):** Magic 4 chunk = 40k+40k+40k+26.666 = **146.666** ✓; Yu-Gi-Oh! 14.371 ✓; Pokémon 24.495 ✓; One Piece 3.290 ✓. `/robots.txt` lista `/sitemap.xml` + 7 chunk (1+1+1+4). Nessuna regressione sulle pagine dettaglio carta (`/cards/{game}/{slug}` → 200); `/cards/s` → 404 innocuo. `npm run typecheck` pulito, `npm run lint` invariato (stessi 3 errori preesistenti).
 
 ### Import e sync carte
 - `scripts/import-yugioh.ts` — import one-shot da YGOPRODeck (`cardinfo.php?misc=yes`, ~14.272 carte):
