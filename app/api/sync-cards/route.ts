@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type SupportedGame = 'yugioh' | 'pokemon'
+type SupportedGame = 'yugioh' | 'pokemon' | 'one_piece' | 'magic'
 
 type CardInsert = {
   slug: string
@@ -14,6 +14,7 @@ type CardInsert = {
   set_name: string | null
   rarity: string | null
   card_type: string | null
+  archetype?: string | null
   atk: number | null
   def: number | null
   level: number | null
@@ -165,7 +166,196 @@ async function fetchNewPokemonCards(
   }
 }
 
+// ── OPTCG (One Piece) ────────────────────────────────────────────────────────
+
+type OPTCGCard = {
+  card_set_id: string
+  card_name: string
+  card_text: string | null
+  set_id: string | null
+  rarity: string | null
+  card_color: string | null
+  card_type: string | null
+  card_power: string | null
+  card_cost: string | null
+  card_image: string | null
+}
+
+function mapOnePieceCard(card: OPTCGCard): CardInsert {
+  const parsedPower = card.card_power ? parseInt(card.card_power, 10) : null
+  const parsedCost = card.card_cost ? parseInt(card.card_cost, 10) : null
+
+  return {
+    slug: slugify(card.card_set_id),
+    game: 'one_piece',
+    name: card.card_name,
+    image_url: card.card_image ?? null,
+    description: card.card_text ?? null,
+    set_name: card.set_id ?? null,
+    rarity: card.rarity ?? null,
+    card_type: card.card_type ?? null,
+    archetype: card.card_color ?? null,
+    atk: null,
+    def: null,
+    level: null,
+    hp: null,
+    damage: null,
+    power: parsedPower !== null && !isNaN(parsedPower) ? parsedPower : null,
+    cost: parsedCost !== null && !isNaN(parsedCost) ? parsedCost : null,
+    external_id: card.card_set_id,
+  }
+}
+
+async function fetchNewOnePieceCards(
+  existingIds: Set<string>,
+  maxNew: number,
+): Promise<{ cards: CardInsert[]; hasMore: boolean }> {
+  // L'endpoint restituisce tutte le carte di tutti i set in un'unica risposta
+  // (nessuna paginazione page/limit).
+  const response = await fetch('https://optcgapi.com/api/allSetCards/')
+  if (!response.ok) {
+    throw new Error(`OPTCG API error: ${response.status}`)
+  }
+  const cards = (await response.json()) as OPTCGCard[]
+  const allNew = cards.filter((c) => !existingIds.has(c.card_set_id))
+  return {
+    cards: allNew.slice(0, maxNew).map(mapOnePieceCard),
+    hasMore: allNew.length > maxNew,
+  }
+}
+
+// ── Scryfall (Magic: The Gathering) ─────────────────────────────────────────
+
+type ScryfallBulkDataEntry = {
+  type: string
+  download_uri: string
+}
+
+type ScryfallBulkDataResponse = {
+  data: ScryfallBulkDataEntry[]
+}
+
+type ScryfallCardFace = {
+  oracle_text?: string
+  image_uris?: { normal?: string }
+}
+
+type ScryfallCard = {
+  id: string
+  name: string
+  lang: string
+  layout: string
+  digital: boolean
+  finishes: string[]
+  set: string
+  set_name: string
+  collector_number: string
+  rarity: string
+  type_line: string
+  colors?: string[]
+  power?: string
+  oracle_text?: string
+  image_uris?: { normal?: string }
+  card_faces?: ScryfallCardFace[]
+}
+
+const MAGIC_EXCLUDED_LAYOUTS = new Set(['token', 'emblem', 'art_series'])
+
+function isImportableMagicCard(card: ScryfallCard): boolean {
+  return card.digital === false && !MAGIC_EXCLUDED_LAYOUTS.has(card.layout) && card.lang === 'en'
+}
+
+function mapMagicCard(card: ScryfallCard, finish: string): CardInsert {
+  const parsedPower = card.power ? parseInt(card.power, 10) : null
+
+  return {
+    slug: slugify(`${card.name} ${card.set} ${card.collector_number} ${finish}`),
+    game: 'magic',
+    name: card.name,
+    image_url: card.image_uris?.normal ?? card.card_faces?.[0]?.image_uris?.normal ?? null,
+    description: card.oracle_text ?? card.card_faces?.[0]?.oracle_text ?? null,
+    set_name: card.set_name,
+    rarity: card.rarity,
+    card_type: card.type_line,
+    archetype: card.colors && card.colors.length > 0 ? card.colors.join('') : null,
+    atk: null,
+    def: null,
+    level: null,
+    hp: null,
+    damage: null,
+    power: parsedPower !== null && !isNaN(parsedPower) ? parsedPower : null,
+    cost: null,
+    external_id: card.id,
+  }
+}
+
+async function fetchNewMagicCards(
+  existingSlugs: Set<string>,
+  maxNew: number,
+): Promise<{ cards: CardInsert[]; hasMore: boolean }> {
+  const indexResponse = await fetch('https://api.scryfall.com/bulk-data')
+  if (!indexResponse.ok) {
+    throw new Error(`Scryfall bulk-data API error: ${indexResponse.status}`)
+  }
+  const index = (await indexResponse.json()) as ScryfallBulkDataResponse
+  const defaultCards = index.data.find((entry) => entry.type === 'default_cards')
+  if (!defaultCards) {
+    throw new Error('Voce "default_cards" non trovata nei bulk data Scryfall')
+  }
+
+  const bulkResponse = await fetch(defaultCards.download_uri)
+  if (!bulkResponse.ok) {
+    throw new Error(`Scryfall bulk download error: ${bulkResponse.status}`)
+  }
+  const cards = (await bulkResponse.json()) as ScryfallCard[]
+
+  const newCards: CardInsert[] = []
+  let hasMore = false
+
+  for (const card of cards) {
+    if (!isImportableMagicCard(card)) continue
+
+    for (const finish of card.finishes) {
+      if (newCards.length >= maxNew) {
+        hasMore = true
+        break
+      }
+      const mappedCard = mapMagicCard(card, finish)
+      if (existingSlugs.has(mappedCard.slug)) continue
+      newCards.push(mappedCard)
+    }
+
+    if (hasMore) break
+  }
+
+  return { cards: newCards, hasMore }
+}
+
 // ── Shared ──────────────────────────────────────────────────────────────────
+
+async function fetchExistingSlugs(game: SupportedGame): Promise<Set<string>> {
+  const supabase = createAdminClient()
+  const existingSlugs = new Set<string>()
+  const CHUNK = 1000
+  let from = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('slug')
+      .eq('game', game)
+      .range(from, from + CHUNK - 1)
+
+    if (error || !data || data.length === 0) break
+    for (const row of data) {
+      existingSlugs.add(row.slug as string)
+    }
+    if (data.length < CHUNK) break
+    from += CHUNK
+  }
+
+  return existingSlugs
+}
 
 async function fetchExistingIds(game: SupportedGame): Promise<Set<string>> {
   const supabase = createAdminClient()
@@ -194,7 +384,7 @@ async function fetchExistingIds(game: SupportedGame): Promise<Set<string>> {
 // ── Route ────────────────────────────────────────────────────────────────────
 
 const MAX_PER_RUN = 500
-const SUPPORTED_GAMES: SupportedGame[] = ['yugioh', 'pokemon']
+const SUPPORTED_GAMES: SupportedGame[] = ['yugioh', 'pokemon', 'one_piece', 'magic']
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
@@ -210,21 +400,34 @@ export async function GET(request: NextRequest) {
   }
   const game = rawGame as SupportedGame
 
-  const existingIds = await fetchExistingIds(game)
+  // Per Magic le righe condividono `external_id` (uno scryfall id per carta, una
+  // riga per finish): la novità si determina sullo `slug`, non sull'`external_id`.
+  const existingKeys =
+    game === 'magic' ? await fetchExistingSlugs(game) : await fetchExistingIds(game)
 
   let result: { cards: CardInsert[]; hasMore: boolean }
   try {
-    result =
-      game === 'yugioh'
-        ? await fetchNewYGOCards(existingIds, MAX_PER_RUN)
-        : await fetchNewPokemonCards(existingIds, MAX_PER_RUN)
+    switch (game) {
+      case 'yugioh':
+        result = await fetchNewYGOCards(existingKeys, MAX_PER_RUN)
+        break
+      case 'pokemon':
+        result = await fetchNewPokemonCards(existingKeys, MAX_PER_RUN)
+        break
+      case 'one_piece':
+        result = await fetchNewOnePieceCards(existingKeys, MAX_PER_RUN)
+        break
+      case 'magic':
+        result = await fetchNewMagicCards(existingKeys, MAX_PER_RUN)
+        break
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Errore sconosciuto'
     return Response.json({ error: message }, { status: 502 })
   }
 
   const { cards: newCards, hasMore } = result
-  const skipped = existingIds.size
+  const skipped = existingKeys.size
 
   if (newCards.length === 0) {
     return Response.json({ inserted: 0, skipped, total: skipped, hasMore: false })

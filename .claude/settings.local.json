@@ -16,7 +16,10 @@
       "Bash(netstat -ano)",
       "Bash(taskkill //F //PID 28720)",
       "Bash(taskkill //F //PID 27696)",
-      "Bash(curl -s http://localhost:3000/login)"
+      "Bash(curl -s http://localhost:3000/login)",
+      "Bash(curl -sL \"https://optcgapi.com/documentation\")",
+      "Bash(curl -sL \"https://optcgapi.com/api/allSetCards/\" -o /tmp/optcg.json -w \"%{http_code} %{size_download}\\\\n\")",
+      "Read(//tmp/**)"
     ]
   }
 }

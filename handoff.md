@@ -131,6 +131,28 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 - Nessun import/sync carte Magic ancora implementato — `/cards/magic` mostra 0 carte
 - Debito tecnico minore: `TCG_META` è duplicato in tre posti (`lib/tcg.ts`, `OnboardingWizard.tsx`, `SettingsClient.tsx`); da consolidare su un'unica fonte in futuro
 
+### Import One Piece TCG e Magic: The Gathering (2026-06-11)
+
+**File creati:**
+- `scripts/import-onepiece.ts` — import one-shot da OPTCG API
+- `scripts/import-magic.ts` — import one-shot da Scryfall bulk data (`default_cards`)
+
+**File modificati:**
+- `app/api/sync-cards/route.ts` — aggiunto supporto `?game=one_piece` e `?game=magic`; nuovo `fetchExistingSlugs` (oltre a `fetchExistingIds`) perché per Magic più righe condividono lo stesso `external_id` (uno scryfall id per carta, una riga per `finish`) e la novità va determinata sullo `slug`
+- `next.config.ts` — `remotePatterns` aggiunti: `en.onepiece-cardgame.com`, `optcgapi.com`, `cards.scryfall.io`, `c1.scryfall.com`
+
+**Deviazioni dalla spec (verificate live contro le API reali):**
+- **One Piece**: l'endpoint `https://optcgapi.com/api/v1/cards?page=N&limit=100` indicato nella spec **non esiste** (404). L'API reale è `https://optcgapi.com/api/allSetCards/`: nessuna paginazione, restituisce tutte le carte (~3.330, non ~4.300) in un array diretto con campi `card_set_id`, `card_name`, `card_text`, `set_id`, `rarity`, `card_color`, `card_type`, `card_power`, `card_cost`, `card_image` (non `card_id`/`name`/`effect`/`set`/`color`/`power`/`cost`/`image_url` come da spec). Script e route adattati di conseguenza
+- **One Piece — dedup per slug**: `slugify(card_set_id)` produce **2.135 slug unici su 3.330 carte** — molte varianti/art alternativa condividono lo stesso `card_set_id` (es. due "Donquixote Doflamingo" entrambi `OP01-073`). Con la dedup per slug richiesta dalla spec, solo la prima variante per `card_set_id` viene importata: ~1.195 art alternative non entreranno nel catalogo. Se servono anche le varianti, servirebbe uno slug che includa anche un identificatore di variante (es. indice o nome) — non incluso in questa sessione, da validare con l'utente prima di cambiare lo schema slug
+- **Magic**: confermato Scryfall (`api.scryfall.com/bulk-data` → `default_cards`); il file bulk è ~545MB (non ~100MB come stimato in spec) — `response.json()` su file di queste dimensioni può richiedere più memoria di quella di default di Node, valutare `node --max-old-space-size=4096` se lo script va in OOM
+
+**Non eseguiti in questa sessione** (mutano il DB, da lanciare manualmente dall'utente):
+```bash
+npx tsx scripts/import-onepiece.ts   # ~2.135 carte uniche per slug
+npx tsx scripts/import-magic.ts      # decine di migliaia di righe (carta+finish), 15-20 min
+```
+Per il sync incrementale via cron, `app/api/sync-cards?game=one_piece` e `?game=magic` sono pronti ma non testati con chiamata reale (richiede `CRON_SECRET`).
+
 ### Sitemap e robots.txt (2026-06-11)
 
 **File creati:**

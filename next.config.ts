@@ -15,6 +15,22 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.scrydex.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'en.onepiece-cardgame.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'optcgapi.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cards.scryfall.io',
+      },
+      {
+        protocol: 'https',
+        hostname: 'c1.scryfall.com',
+      },
     ],
   },
   // React Compiler attivo (Next.js 16, stabile). Richiede babel-plugin-react-compiler.
