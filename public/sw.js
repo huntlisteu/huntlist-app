@@ -1,5 +1,5 @@
-const CACHE_NAME = 'huntlist-v1';
-const STATIC_ASSETS = ['/', '/feed', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'huntlist-v2';
+const STATIC_ASSETS = ['/', '/market', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

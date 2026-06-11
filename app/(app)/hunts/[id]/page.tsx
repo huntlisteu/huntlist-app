@@ -258,7 +258,7 @@ export default async function HuntDetailPage({
             <div className="rounded-lg border border-dashed border-border py-10 text-center">
               <p className="text-sm text-muted-foreground">
                 Nessuna offerta ancora. Il feed è pubblico:{" "}
-                <Link href="/feed" className="underline underline-offset-4">
+                <Link href="/market" className="underline underline-offset-4">
                   condividi la tua Hunt
                 </Link>
                 .

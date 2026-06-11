@@ -88,7 +88,7 @@ export function UpdatePasswordForm() {
     // ── Successo ─────────────────────────────────────────────────────────
     if (data.user) {
       // Sessione ancora attiva → vai al feed.
-      router.push("/feed");
+      router.push("/market");
     } else {
       // Supabase ha invalidato la sessione dopo il reset (raro ma possibile).
       router.push("/login?message=password_aggiornata");

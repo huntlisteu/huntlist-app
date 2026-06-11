@@ -89,7 +89,7 @@ export async function updateAvatarUrl(avatarUrl: string): Promise<SettingsResult
   if (updateError) return { error: "Impossibile salvare l'avatar. Riprova." };
 
   revalidatePath("/settings");
-  revalidatePath("/feed");
+  revalidatePath("/market");
   revalidatePath("/dashboard");
   return { success: true };
 }

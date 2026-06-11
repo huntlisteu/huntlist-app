@@ -2,7 +2,7 @@
   "name": "Huntlist",
   "short_name": "Huntlist",
   "description": "Il marketplace C2C per collezionisti TCG",
-  "start_url": "/feed",
+  "start_url": "/market",
   "display": "standalone",
   "background_color": "#F2EDE3",
   "theme_color": "#1A1A18",

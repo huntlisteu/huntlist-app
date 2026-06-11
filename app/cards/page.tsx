@@ -65,7 +65,7 @@ export default async function CarteHubPage() {
         {HUB_GAMES.map(({ game, label, tagline }, index) => (
           <Link
             key={game}
-            href={`/carte/${game}`}
+            href={`/cards/${game}`}
             className="group flex flex-col gap-4 rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-card p-6 shadow-[4px_4px_0_#1A1A18] dark:shadow-[4px_4px_0_#3A3D38] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#1A1A18] dark:hover:shadow-[2px_2px_0_#3A3D38] transition-all duration-100"
           >
             <div className="space-y-1">

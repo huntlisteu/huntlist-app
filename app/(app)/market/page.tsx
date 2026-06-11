@@ -21,7 +21,7 @@ function buildUrl(params: { game?: Game; cursor?: string }): string {
   if (params.game) sp.set("game", params.game);
   if (params.cursor) sp.set("cursor", params.cursor);
   const qs = sp.toString();
-  return `/feed${qs ? `?${qs}` : ""}`;
+  return `/market${qs ? `?${qs}` : ""}`;
 }
 
 export default async function FeedPage({

@@ -87,7 +87,7 @@ export async function createHunt(
     return { error: "Impossibile salvare le carte. Riprova." };
   }
 
-  revalidatePath("/feed");
+  revalidatePath("/market");
   revalidatePath("/dashboard");
   redirect(`/hunts/${huntId}`);
 }
@@ -154,7 +154,7 @@ export async function updateHunt(
   }
 
   revalidatePath(`/hunts/${id}`);
-  revalidatePath("/feed");
+  revalidatePath("/market");
   revalidatePath("/dashboard");
   redirect(`/hunts/${id}`);
 }
@@ -232,7 +232,7 @@ export async function closeHunt(formData: FormData): Promise<void> {
   if (existing && existing.buyer_id === user.id && existing.status === "open") {
     await supabase.from("hunts").update({ status: "closed" }).eq("id", id);
     revalidatePath(`/hunts/${id}`);
-    revalidatePath("/feed");
+    revalidatePath("/market");
     revalidatePath("/dashboard");
   }
 

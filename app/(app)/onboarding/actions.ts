@@ -103,7 +103,7 @@ export async function completeOnboarding(
     return { error: "Impossibile completare l'onboarding. Riprova." };
   }
 
-  revalidatePath("/feed");
+  revalidatePath("/market");
   revalidatePath("/dashboard");
 
   return { success: true };

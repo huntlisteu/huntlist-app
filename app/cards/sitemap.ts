@@ -15,7 +15,7 @@ type CardRow = {
 }
 
 /**
- * Sitemap delle pagine carta, servita su /carte/sitemap.xml.
+ * Sitemap delle pagine carta, servita su /cards/sitemap.xml.
  * Usa la secret key (solo server: questo file non è mai importato dal client)
  * perché la publishable key ha rate limit più bassi; la query resta una
  * lettura di dati pubblici. Paginazione da 1000 con ordinamento totale su
@@ -57,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
       for (const card of rows) {
         entries.push({
-          url: `${SITE_URL}/carte/${game}/${card.slug}`,
+          url: `${SITE_URL}/cards/${game}/${card.slug}`,
           lastModified: card.updated_at ?? undefined,
           changeFrequency: 'monthly',
           priority: 0.7,

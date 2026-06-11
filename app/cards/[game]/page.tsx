@@ -103,7 +103,7 @@ export default async function CarteGamePage({ params }: Props) {
         className="flex items-center gap-2 text-sm text-muted-foreground mb-6"
         aria-label="Breadcrumb"
       >
-        <Link href="/carte" className="hover:text-foreground transition-colors">
+        <Link href="/cards" className="hover:text-foreground transition-colors">
           Carte
         </Link>
         <span aria-hidden="true">→</span>

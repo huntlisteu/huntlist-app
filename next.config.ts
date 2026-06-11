@@ -32,18 +32,22 @@ const nextConfig: NextConfig = {
         destination: "https://huntlist.eu/:path*",
         permanent: true,
       },
-      // Vecchi URL del catalogo carte (/[game]/carte/...) → nuova struttura /carte/[game]/...
-      // Il vincolo regex sul gioco evita loop di redirect su /carte/carte/:slug.
+      // Vecchi URL del catalogo carte (/[game]/carte/... e /carte/...) → /cards/...
+      // Il vincolo regex sul gioco evita di catturare path arbitrari.
       {
         source: "/:game(yugioh|pokemon|one_piece)/carte",
-        destination: "/carte/:game",
+        destination: "/cards/:game",
         permanent: true,
       },
       {
         source: "/:game(yugioh|pokemon|one_piece)/carte/:slug",
-        destination: "/carte/:game/:slug",
+        destination: "/cards/:game/:slug",
         permanent: true,
       },
+      { source: "/carte/:path*", destination: "/cards/:path*", permanent: true },
+      // Feed rinominato in Market.
+      { source: "/feed", destination: "/market", permanent: true },
+      { source: "/feed/:path*", destination: "/market/:path*", permanent: true },
     ];
   },
 };

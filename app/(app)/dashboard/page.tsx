@@ -288,7 +288,7 @@ export default async function DashboardPage({
               Non hai ancora fatto nessuna offerta.
             </p>
             <Button asChild variant="outline" size="sm" className="mt-4">
-              <Link href="/feed">Sfoglia le Hunt aperte</Link>
+              <Link href="/market">Sfoglia le Hunt aperte</Link>
             </Button>
           </div>
         ) : (

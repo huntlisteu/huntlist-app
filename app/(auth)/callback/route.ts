@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
  *
  * Flusso PKCE: la destinazione e' sempre determinata lato server in base allo
  * stato del profilo — il parametro ?next= e' ignorato per evitare redirect su
- * pagine con cache RSC stale (es. ?next=/feed dal bottone OAuth). Unica
+ * pagine con cache RSC stale (es. ?next=/market dal bottone OAuth). Unica
  * eccezione: type=recovery manda sempre a /update-password.
  *
  * Flusso token_hash: ?next= e' rispettato (link costruiti lato server con
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     // Destinazione basata sullo stato del profilo.
-    // ?next= e' ignorato nel flusso code: valori come ?next=/feed causerebbero
+    // ?next= e' ignorato nel flusso code: valori come ?next=/market causerebbero
     // redirect su pagine con cache RSC stale, rendendo l'utente apparentemente
     // non autenticato.
     const { data: profile } = await supabase

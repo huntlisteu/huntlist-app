@@ -368,7 +368,7 @@ export function OnboardingWizard({ userId }: { userId: string }) {
       return;
     }
 
-    router.push("/feed");
+    router.push("/market");
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────

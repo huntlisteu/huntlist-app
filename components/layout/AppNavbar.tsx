@@ -108,7 +108,7 @@ export function AppNavbar({ isLoggedIn, profile }: AppNavbarProps) {
 
         {/* ── Logo ────────────────────────────────────────────────────── */}
         <Link
-          href={isLoggedIn ? "/feed" : "/"}
+          href={isLoggedIn ? "/market" : "/"}
           className="flex items-center shrink-0"
         >
           <Logo width={140} height={36} />
@@ -118,7 +118,7 @@ export function AppNavbar({ isLoggedIn, profile }: AppNavbarProps) {
         <nav className="hidden md:flex items-center gap-1">
           {isLoggedIn && (
             <>
-              <NavLink href="/feed" active={isActive("/feed")}>
+              <NavLink href="/market" active={isActive("/market")}>
                 Feed
               </NavLink>
               <NavLink href="/dashboard" active={isActive("/dashboard")}>
@@ -126,7 +126,7 @@ export function AppNavbar({ isLoggedIn, profile }: AppNavbarProps) {
               </NavLink>
             </>
           )}
-          <NavLink href="/carte" active={isActive("/carte")}>
+          <NavLink href="/cards" active={isActive("/cards")}>
             Carte
           </NavLink>
         </nav>

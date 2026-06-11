@@ -107,13 +107,13 @@ export function BottomNav() {
       ].join(" ")}
     >
       {/* Feed */}
-      <Link href="/feed" className={tabCls("/feed")} aria-label="Feed">
+      <Link href="/market" className={tabCls("/market")} aria-label="Feed">
         <IconFeed />
         <span>Feed</span>
       </Link>
 
       {/* Carte */}
-      <Link href="/carte" className={tabCls("/carte")} aria-label="Carte">
+      <Link href="/cards" className={tabCls("/cards")} aria-label="Carte">
         <IconCarte />
         <span>Carte</span>
       </Link>

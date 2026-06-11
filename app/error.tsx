@@ -33,7 +33,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
             Riprova
           </button>
           <Link
-            href="/feed"
+            href="/market"
             className="inline-flex items-center justify-center rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-transparent px-6 py-3 font-sans font-bold text-[#1A1A18] dark:text-[#F0EFE8] shadow-[4px_4px_0px_#1A1A18] dark:shadow-[4px_4px_0px_#3A3D38] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#1A1A18] dark:hover:shadow-[2px_2px_0px_#3A3D38] transition-all"
           >
             Torna al feed

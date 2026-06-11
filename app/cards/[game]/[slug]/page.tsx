@@ -168,12 +168,12 @@ export default async function CartaDettaglioPage({ params }: Props) {
           className="flex items-center gap-2 text-sm text-muted-foreground mb-8"
           aria-label="Breadcrumb"
         >
-          <Link href="/carte" className="hover:text-foreground transition-colors">
+          <Link href="/cards" className="hover:text-foreground transition-colors">
             Carte
           </Link>
           <span aria-hidden="true">→</span>
           <Link
-            href={`/carte/${typedGame}`}
+            href={`/cards/${typedGame}`}
             className="hover:text-foreground transition-colors"
           >
             {GAME_LABEL[typedGame]}
@@ -251,7 +251,7 @@ export default async function CartaDettaglioPage({ params }: Props) {
                     : 'utenti la stanno cercando'}
                 </p>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/feed?card=${card.slug}&game=${typedGame}`}>
+                  <Link href={`/market?card=${card.slug}&game=${typedGame}`}>
                     Vedi tutte
                   </Link>
                 </Button>
@@ -266,7 +266,7 @@ export default async function CartaDettaglioPage({ params }: Props) {
                 </Link>
               </Button>
               <Button variant="ember" asChild>
-                <Link href={`/feed?card=${card.slug}&game=${typedGame}`}>
+                <Link href={`/market?card=${card.slug}&game=${typedGame}`}>
                   Ho questa carta — Fai offerta
                 </Link>
               </Button>

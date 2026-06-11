@@ -1,8 +1,8 @@
 # Handoff — Huntlist
 
-> Aggiornato il 2026-06-10. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
+> Aggiornato il 2026-06-11. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
 >
-> Ultima sessione: sitemap XML (statiche + ~39k pagine carta) e robots.txt nativi App Router. Sessione precedente: ristrutturazione catalogo carte sotto `/carte` (hub giochi + griglia con ricerca/filtri client-side + redirect 301 dai vecchi URL).
+> Ultima sessione: rinominate le route `/carte` → `/cards` e `/feed` → `/market` (cartelle, link, sitemap, redirect 301). Nei documenti sotto, i riferimenti storici a `/carte` e `/feed` vanno letti come `/cards` e `/market` (i file vivono ora in `app/cards/` e `app/(app)/market/`).
 
 ---
 
@@ -26,6 +26,7 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 | — | Catalogo carte SEO (Yu-Gi-Oh + Pokémon) | ✅ Completa (One Piece da fare) |
 | — | Hub `/carte` + griglia con ricerca e filtri chip | ✅ Completa |
 | — | Sitemap XML + robots.txt | ✅ Completa |
+| — | Rename route `/carte`→`/cards`, `/feed`→`/market` | ✅ Completa |
 
 ---
 
@@ -102,6 +103,19 @@ Marketplace C2C per "mancaliste" TCG (Pokémon, One Piece, Yu-Gi-Oh!), mercato e
 - per Pokémon `archetype` è sempre `null` (l'import valorizza solo `card_type` = supertype) → la sezione "Tipo elemento" oggi non compare; comparirà quando l'import popolerà il campo
 - i valori distinti dei filtri sono calcolati lato server senza `SELECT DISTINCT` (PostgREST non lo espone e tronca ogni risposta a 1000 righe): `fetchDistinct` fa un count e poi scarica la colonna a chunk da 1000 in parallelo (cap 30.000 righe), deduplica via `Set` e tiene il risultato in una cache in memoria con TTL 1h. Con un singolo select da 1000 righe i filtri uscivano monchi (es. "Tipo carta" YGO con 1 solo valore). Per cataloghi molto più grandi conviene comunque una RPC `SELECT DISTINCT` dedicata
 
+### Rename route: `/carte` → `/cards`, `/feed` → `/market` (2026-06-11)
+
+**Cartelle rinominate (git mv):** `app/carte/` → `app/cards/`, `app/(app)/feed/` → `app/(app)/market/`.
+
+**Riferimenti aggiornati:** tutti i link/`redirect()`/`router.push()`/`revalidatePath()` interni, `app/sitemap.ts` e `app/cards/sitemap.ts` (URL `/cards/...` e `/market`), `app/robots.ts` (sitemap `/cards/sitemap.xml`), `AppNavbar`/`BottomNav`, CTA della pagina carta, `?next=` del bottone Google OAuth, `public/manifest.json` (`start_url: /market`) e `public/sw.js` (precache `/market`).
+
+**Redirect 301 in `next.config.ts`:** `/carte/:path*` → `/cards/:path*`, `/feed[/:path*]` → `/market[/:path*]`; i redirect legacy `/{game}/carte[/:slug]` ora puntano direttamente a `/cards/...` (un solo hop).
+
+**Note:**
+- `public/sw.js`: oltre al path, alzato `CACHE_NAME` a `huntlist-v2` — il SW è cache-first senza handler di activate, e i client con la v1 servivano `/feed` dalla cache ignorando il redirect (visto in verifica). Con il nuovo SW il precache riparte; le cache `huntlist-v1` orfane restano finché non si aggiunge un handler di activate che le pulisca (micro–debito tecnico)
+- le label visibili in navbar/bottom nav restano "Feed" e "Carte" (decisione copy non presa in questa sessione: i link puntano a `/market` e `/cards`)
+- i componenti si chiamano ancora `CarteClient`/`CardClient` (solo i path URL sono stati rinominati)
+
 ### Sitemap e robots.txt (2026-06-11)
 
 **File creati:**
@@ -175,7 +189,7 @@ Trigger rilevanti:
 ```
 /                       → landing page Next.js (redirect a /dashboard se loggato)
 /privacy                → Privacy & Cookie Policy (statica)
-/feed                   → feed pubblico Hunt (pubblico)
+/market                 → feed pubblico Hunt (pubblico; ex /feed, che redirige 301)
 /hunts/new              → crea Hunt (auth)
 /hunts/[id]             → dettaglio Hunt (pubblico)
 /hunts/[id]/edit        → modifica Hunt (auth + owner)
@@ -189,12 +203,14 @@ Trigger rilevanti:
 /forgot-password        → richiesta reset password
 /update-password        → set nuova password (sessione recovery)
 
-/carte                  → hub selezione gioco (pubblico)
-/carte/[game]           → griglia carte con ricerca + filtri chip (pubblico, yugioh|pokemon|one_piece)
-/carte/[game]/[slug]    → dettaglio carta + JSON-LD (pubblico)
-/[game]/carte[/slug]    → redirect 301 ai path sopra (next.config.ts)
+/cards                  → hub selezione gioco (pubblico)
+/cards/[game]           → griglia carte con ricerca + filtri chip (pubblico, yugioh|pokemon|one_piece)
+/cards/[game]/[slug]    → dettaglio carta + JSON-LD (pubblico)
+/carte/:path*           → redirect 301 a /cards/:path* (next.config.ts)
+/feed[/:path*]          → redirect 301 a /market[/:path*] (next.config.ts)
+/[game]/carte[/slug]    → redirect 301 diretto a /cards/... (next.config.ts)
 /sitemap.xml            → sitemap pagine statiche (app/sitemap.ts)
-/carte/sitemap.xml      → sitemap pagine carta, ~39k URL (app/carte/sitemap.ts, revalidate 24h)
+/cards/sitemap.xml      → sitemap pagine carta, ~39k URL (app/cards/sitemap.ts, revalidate 24h)
 /robots.txt             → robots nativo con disallow route private (app/robots.ts)
 /api/sync-cards         → GET, sync notturno carte (CRON_SECRET, ?game=yugioh|pokemon)
 ```
