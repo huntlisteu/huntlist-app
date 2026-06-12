@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Sora } from "next/font/google";
 
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { ThemeProvider } from "@/components/brand/ThemeProvider";
 import PWARegister from "@/components/PWARegister";
@@ -56,6 +57,7 @@ export default function RootLayout({
         </ThemeProvider>
         <PWARegister />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
