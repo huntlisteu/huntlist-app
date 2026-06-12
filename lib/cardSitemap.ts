@@ -37,6 +37,10 @@ function adminClient() {
 /**
  * Calcola i chunk necessari per un gioco. Restituisce sempre almeno un chunk
  * (`{ id: 0 }`) cosi' la route esiste anche con catalogo vuoto.
+ *
+ * Per Yu-Gi-Oh!, ogni carta con `ruling_data` aggiunge anche l'URL
+ * `/cards/yugioh/{slug}/ruling` (vedi buildGameSitemap), quindi il totale
+ * di URL include anche il conteggio delle carte con ruling.
  */
 export async function generateGameSitemaps(game: Game): Promise<{ id: number }[]> {
   const supabase = adminClient()
@@ -45,7 +49,17 @@ export async function generateGameSitemaps(game: Game): Promise<{ id: number }[]
     .select('*', { count: 'exact', head: true })
     .eq('game', game)
 
-  const total = count ?? 0
+  let total = count ?? 0
+
+  if (game === 'yugioh') {
+    const { count: rulingCount } = await supabase
+      .from('cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('game', 'yugioh')
+      .not('ruling_data', 'is', null)
+    total += rulingCount ?? 0
+  }
+
   const numSitemaps = Math.max(1, Math.ceil(total / SITEMAP_BATCH_SIZE))
   return Array.from({ length: numSitemaps }, (_, i) => ({ id: i }))
 }
@@ -88,6 +102,7 @@ export async function listCardSitemapUrls(): Promise<string[]> {
 type CardRow = {
   slug: string
   updated_at: string | null
+  ruling_data?: unknown
 }
 
 /**
@@ -115,6 +130,15 @@ export async function buildGameSitemap(game: Game, id: number): Promise<Metadata
         changeFrequency: 'monthly',
         priority: 0.7,
       })
+
+      if (game === 'yugioh' && card.ruling_data !== null && card.ruling_data !== undefined) {
+        entries.push({
+          url: `${SITE_URL}/cards/yugioh/${card.slug}/ruling`,
+          lastModified: card.updated_at ?? undefined,
+          changeFrequency: 'monthly',
+          priority: 0.6,
+        })
+      }
     }
 
     if (rows.length < PAGE_SIZE) break
@@ -140,15 +164,20 @@ async function fetchPage(
   retries = 3,
 ): Promise<CardRow[]> {
   for (let attempt = 0; attempt < retries; attempt++) {
-    const { data, error } = await supabase
+    const query = supabase
       .from('cards')
-      .select('slug, updated_at')
+      .select(game === 'yugioh' ? 'slug, updated_at, ruling_data' : 'slug, updated_at')
       .eq('game', game)
       .order('slug', { ascending: true })
       .range(from, to)
 
+    const { data, error } = await query
+
     if (!error) {
-      return (data ?? []) as CardRow[]
+      // Il select è scelto a runtime in base a `game`, quindi Supabase non
+      // riesce a tipizzare staticamente il risultato: il cast via `unknown`
+      // riflette le colonne richieste sopra (CardRow.ruling_data è opzionale).
+      return (data ?? []) as unknown as CardRow[]
     }
 
     if (attempt === retries - 1) {

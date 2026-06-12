@@ -15,10 +15,14 @@ const SITE_URL = 'https://www.huntlist.eu'
  * l'indice e Search Console tornerebbe a fallire. Tenere allineati a
  * `SITEMAP_BATCH_SIZE` (5000) e al numero di carte per gioco:
  * chunk = ceil(carte_gioco / 5000). Aggiornare se il catalogo cresce.
+ *
+ * Yu-Gi-Oh! fa eccezione: ogni carta con `ruling_data` aggiunge anche l'URL
+ * `/cards/yugioh/{slug}/ruling` (vedi buildGameSitemap in lib/cardSitemap.ts),
+ * quindi ~14k carte + ~13k ruling ≈ 27k URL → chunk = ceil(27000/5000) = 6.
  */
 const GAME_CHUNKS: Record<Game, number> = {
   pokemon: 5,
-  yugioh: 3,
+  yugioh: 6,
   one_piece: 1,
   magic: 30,
 }
