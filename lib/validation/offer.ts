@@ -14,7 +14,7 @@ function eurosToCents(v: unknown): number {
   return Math.round(n * 100);
 }
 
-function shippingToCents(v: unknown): number {
+function _shippingToCents(v: unknown): number {
   const s = String(v ?? "").trim();
   if (!s) return 0;
   return eurosToCents(v);

@@ -74,6 +74,21 @@ const YGO_TYPE_OPTIONS: ChipOption[] = [
   { label: 'Tuner', value: 'Tuner', match: 'ilike' },
 ]
 
+// Per Magic il `card_type` nel DB è la type line completa (es. "Artifact
+// Creature — Golem", "Legendary Creature — Human Wizard"): ogni chip filtra
+// per `ilike` su uno degli 8 macrotipi, con label italiana separata dal
+// valore di ricerca.
+const MAGIC_CARD_TYPES: ChipOption[] = [
+  { label: 'Creatura', value: 'Creature', match: 'ilike' },
+  { label: 'Istantaneo', value: 'Instant', match: 'ilike' },
+  { label: 'Stregoneria', value: 'Sorcery', match: 'ilike' },
+  { label: 'Incantesimo', value: 'Enchantment', match: 'ilike' },
+  { label: 'Artefatto', value: 'Artifact', match: 'ilike' },
+  { label: 'Terra', value: 'Land', match: 'ilike' },
+  { label: 'Planeswalker', value: 'Planeswalker', match: 'ilike' },
+  { label: 'Battaglia', value: 'Battle', match: 'ilike' },
+]
+
 const GAME_FILTERS: Record<Game, GameFilterConfig> = {
   yugioh: {
     attributeLabel: 'Archetipo',
@@ -126,8 +141,8 @@ const GAME_FILTERS: Record<Game, GameFilterConfig> = {
     attributeAutocomplete: false,
     typeLabel: 'Tipo carta',
     typeField: 'card_type',
-    typeOptions: [],
-    typeAutocomplete: true,
+    typeOptions: MAGIC_CARD_TYPES,
+    typeAutocomplete: false,
   },
 }
 

@@ -47,7 +47,7 @@ export async function createHunt(
   _prev: HuntFormState,
   formData: FormData,
 ): Promise<HuntFormState> {
-  const user = await requireUser();
+  const _user = await requireUser();
 
   const parsed = createHuntSchema.safeParse(readHuntForm(formData));
   if (!parsed.success) {

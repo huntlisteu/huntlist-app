@@ -312,7 +312,7 @@ export function OnboardingWizard({ userId }: { userId: string }) {
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleComplete(skipAvatar: boolean) {
     setSubmitError(null);
