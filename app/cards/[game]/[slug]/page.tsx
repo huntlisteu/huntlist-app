@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import { BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { GAMES, type Game } from '@/lib/tcg'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,9 @@ type EffectData = {
   es?: string
   pt?: string
 }
+
+type RulingEntry = Partial<Record<'en' | 'it' | 'de' | 'fr' | 'es' | 'pt', string>>
+type RulingData = Record<string, RulingEntry[]>
 
 type Card = {
   id: string
@@ -37,6 +41,7 @@ type Card = {
   power: number | null
   cost: number | null
   effect_data: EffectData | null
+  ruling_data: RulingData | null
 }
 
 type Printing = {
@@ -381,6 +386,16 @@ export default async function CartaDettaglioPage({ params }: Props) {
 
             {/* Statistiche per gioco */}
             <GameStats card={card} />
+
+            {/* Ruling (solo Yu-Gi-Oh!, se disponibile) */}
+            {typedGame === 'yugioh' && card.ruling_data && (
+              <Button variant="outline" size="sm" asChild className="self-start">
+                <Link href={`/cards/yugioh/${card.slug}/ruling`}>
+                  <BookOpen className="size-4" />
+                  Ruling
+                </Link>
+              </Button>
+            )}
 
             {/* Descrizione */}
             {displayDescription && (
