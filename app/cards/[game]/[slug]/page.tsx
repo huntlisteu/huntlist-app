@@ -7,6 +7,15 @@ import { GAMES, type Game } from '@/lib/tcg'
 import { Button } from '@/components/ui/button'
 import { CardClient } from './CardClient'
 
+type EffectData = {
+  en?: string
+  it?: string
+  de?: string
+  fr?: string
+  es?: string
+  pt?: string
+}
+
 type Card = {
   id: string
   game: Game
@@ -27,6 +36,7 @@ type Card = {
   damage: string | null
   power: number | null
   cost: number | null
+  effect_data: EffectData | null
 }
 
 type Printing = {
@@ -265,6 +275,13 @@ export default async function CartaDettaglioPage({ params }: Props) {
 
   const printings = typedGame === 'yugioh' ? await getPrintings(card.id) : []
 
+  // Per Yu-Gi-Oh!, preferisci il testo effetto YGOResources (IT, poi EN) alla
+  // description originale di YGOPRODeck.
+  const displayDescription =
+    typedGame === 'yugioh'
+      ? card.effect_data?.it ?? card.effect_data?.en ?? card.description
+      : card.description
+
   const hasRelatedCriteria = Boolean(
     card.archetype || card.card_type || card.name || card.set_name || card.affiliation
   )
@@ -275,7 +292,7 @@ export default async function CartaDettaglioPage({ params }: Props) {
     '@type': 'Product',
     name: card.name,
     image: card.image_url,
-    description: card.description,
+    description: displayDescription,
     brand: {
       '@type': 'Brand',
       name: GAME_LABEL[typedGame],
@@ -366,9 +383,9 @@ export default async function CartaDettaglioPage({ params }: Props) {
             <GameStats card={card} />
 
             {/* Descrizione */}
-            {card.description && (
-              <p className="text-muted-foreground leading-relaxed max-w-prose">
-                {card.description}
+            {displayDescription && (
+              <p className="text-muted-foreground leading-relaxed max-w-prose whitespace-pre-line">
+                {displayDescription}
               </p>
             )}
 

@@ -12,6 +12,7 @@ type YGOCard = {
   def?: number
   level?: number
   archetype?: string
+  misc_info?: Array<{ konami_id?: number }>
   card_sets?: Array<{
     set_name: string
     set_code: string
@@ -39,6 +40,7 @@ type CardInsert = {
   atk: number | null
   def: number | null
   level: number | null
+  konami_id: number | null
   hp: null
   damage: null
   power: null
@@ -76,6 +78,7 @@ function mapCard(card: YGOCard): CardInsert {
     atk: card.atk ?? null,
     def: card.def ?? null,
     level: card.level ?? null,
+    konami_id: card.misc_info?.[0]?.konami_id ?? null,
     hp: null,
     damage: null,
     power: null,
