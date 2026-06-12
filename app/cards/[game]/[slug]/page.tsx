@@ -28,7 +28,6 @@ type Card = {
   image_url: string | null
   description: string | null
   rarity: string | null
-  views: number
   set_name: string | null
   card_type: string | null
   archetype: string | null
@@ -209,10 +208,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!card) return {}
   return {
     title: `${card.name} | ${GAME_LABEL[card.game]} — Huntlist`,
-    description: `Cerca ${card.name} su Huntlist. ${card.views} visualizzazioni questo mese. Trova venditori o pubblica la tua wishlist.`,
+    description: `Cerca ${card.name} su Huntlist. Trova venditori o pubblica la tua wishlist.`,
     openGraph: {
       title: `${card.name} — ${GAME_LABEL[card.game]}`,
-      description: `${card.views} collezionisti interessati su Huntlist`,
+      description: `${card.name} su Huntlist — il marketplace delle mancaliste TCG`,
       images: card.image_url ? [card.image_url] : [],
     },
   }
@@ -525,10 +524,7 @@ export default async function CartaDettaglioPage({ params }: Props) {
           </div>
         )}
 
-        {/* Visualizzazioni */}
-        <div className="mt-10 pt-6 border-t border-border">
-          <CardClient cardId={card.id} views={card.views} />
-        </div>
+        <CardClient cardId={card.id} />
       </main>
     </>
   )
