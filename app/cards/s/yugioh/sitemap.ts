@@ -11,4 +11,4 @@ export default async function sitemap({ id }: { id: unknown }): Promise<Metadata
   return buildGameSitemap(GAME, await resolveSitemapId(id))
 }
 
-export const revalidate = 86400
+export const dynamic = 'force-dynamic'
