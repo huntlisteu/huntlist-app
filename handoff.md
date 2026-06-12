@@ -1,8 +1,8 @@
 # Handoff — Huntlist
 
-> Aggiornato il 2026-06-11. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
+> Aggiornato il 2026-06-12. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
 >
-> Ultima sessione: rinominate le route `/carte` → `/cards` e `/feed` → `/market` (cartelle, link, sitemap, redirect 301). Nei documenti sotto, i riferimenti storici a `/carte` e `/feed` vanno letti come `/cards` e `/market` (i file vivono ora in `app/cards/` e `app/(app)/market/`).
+> Ultima sessione: riscritti i filtri del catalogo (`/cards/[game]`) — chip hardcodati + autocomplete, rimosso il fetch dei valori distinti al mount e il filtro Set (vedi sezione "Filtri catalogo riscritti"). Sessione precedente: rinominate le route `/carte` → `/cards` e `/feed` → `/market` (cartelle, link, sitemap, redirect 301). Nei documenti sotto, i riferimenti storici a `/carte` e `/feed` vanno letti come `/cards` e `/market` (i file vivono ora in `app/cards/` e `app/(app)/market/`).
 
 ---
 
@@ -200,6 +200,27 @@ Sostituita la sitemap carte unica (superava i 50k URL/file di Google: solo Magic
 - `id` arriva al handler come **Promise** (non come `number` come da doc): `resolveSitemapId` await-a e fa `parseInt`
 
 **Verifica (dev server, conteggi confrontati col DB):** Magic 4 chunk = 40k+40k+40k+26.666 = **146.666** ✓; Yu-Gi-Oh! 14.371 ✓; Pokémon 24.495 ✓; One Piece 3.290 ✓. `/robots.txt` lista `/sitemap.xml` + 7 chunk (1+1+1+4). Nessuna regressione sulle pagine dettaglio carta (`/cards/{game}/{slug}` → 200); `/cards/s` → 404 innocuo. `npm run typecheck` pulito, `npm run lint` invariato (stessi 3 errori preesistenti).
+
+### Filtri catalogo riscritti — chip hardcodati + autocomplete (2026-06-12)
+I filtri di `/cards/[game]` caricavano al mount tutti i valori distinti di `archetype`/`card_type`/`set_name` dal DB (`fetchDistinct` con count + chunk da 1000 + cache TTL 1h): pesante e lento. Ora sono **statici** — la pagina carica istantaneamente senza fetch al mount.
+
+**File modificati:**
+- `app/cards/[game]/page.tsx` — rimosso interamente `fetchDistinct`, la cache in memoria, i tipi `FilterField`/`ServerSupabase` e l'import di `createClient` server. La pagina non fa più alcuna query e non passa più la prop `filtri` a `CarteClient`. Tipo `CarteFiltri` non più usato (rimosso anche da `CarteClient`)
+- `app/cards/[game]/CarteClient.tsx` — riscritti i filtri:
+  - `GAME_FILTERS: Record<Game, GameFilterConfig>` con valori **hardcodati** per gioco. Ogni filtro è una sezione "attributo/colore/tipo elemento" + una sezione "tipo carta"; il **filtro Set è stato rimosso del tutto**
+  - chip option modellata come `{ label, value, match: 'eq' | 'ilike' }` — `label` è ciò che si vede, `value` ciò che va in query
+  - **YGO**: archetipo via **autocomplete** (`useAttributeAutocomplete`), tipo carta a chip con `ilike` su parola chiave (label IT → value EN: Mostro→`%Monster%`, Spell→`%Spell%`, Trappola→`%Trap%`, Fusion, Synchro, XYZ, Link, Rituale→`%Ritual%`, Pendulum, Tuner) perché nel DB i `card_type` sono compositi ("Effect Monster", "Continuous Spell Card"…)
+  - **Pokémon**: tipo elemento (`archetype`, `eq`) + tipo carta (`card_type`, `eq`), entrambi a chip
+  - **One Piece**: colore (`archetype`, **`ilike`** così "Blue" cattura "Blue Black") + tipo carta (`card_type`, `eq`), a chip
+  - **Magic**: colore (`archetype`, `eq`) a chip + tipo carta via **autocomplete**
+  - `AutocompleteFilter`: input separato dalla barra ricerca, debounce 300ms, query `ilike` su `archetype`/`card_type` con `.limit(8)` + dedup via `Set`, dropdown max 8 voci, `AbortController`, click → imposta filtro (`eq` esatto) e chiude. Valore selezionato mostrato come chip Chartreuse con × per deselezionare
+  - reset `pagina` a 0 ad ogni cambio filtro; `AbortController` su ogni fetch della griglia
+
+**Verifica (dev server, dark mode):** `/cards/yugioh` carica istantaneamente, mostra autocomplete "Archetipo" + 10 chip "Tipo carta", nessun "Set"; digitando "Sky" il dropdown mostra "Sky Striker"/"The Sanctuary in the Sky", click su "Sky Striker" → chip selezionato + griglia filtrata (Aileron, Combined Maneuver…). `/cards/pokemon` → chip "Tipo elemento" (11) + "Tipo carta" (Pokémon/Trainer/Energy), nessun fetch al mount. `/cards/magic` → chip "Colore" (W/U/B/R/G/Multicolor/Colorless) + autocomplete "Tipo carta". `npm run typecheck` pulito; `npm run lint` invariato (stessi 3 errori preesistenti non correlati); nessun errore console.
+
+**Note / debito:**
+- per i chip colore Magic vale la spec ("per tutti gli altri usa `eq` esatto"): nel DB `archetype` Magic è `colors.join('')` (es. "WU", "WUBRG"), quindi i chip a colore singolo "W"/"U"/… matchano solo le mono-colore e "Multicolor"/"Colorless" probabilmente non matchano nessuna riga finché non si normalizza il dato all'import. Comportamento voluto da spec in questa sessione, da rivedere se i filtri colore Magic devono catturare anche le multicolore
+- i chip "Tipo elemento" Pokémon funzionano solo quando l'import popola `archetype` (= `types[0]`, aggiunto in `scripts/import-pokemon.ts` in questa stessa sessione): finché il DB non viene re-importato, i chip rendono ma filtrano a vuoto
 
 ### Import e sync carte
 - `scripts/import-yugioh.ts` — import one-shot da YGOPRODeck (`cardinfo.php?misc=yes`, ~14.272 carte):

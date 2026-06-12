@@ -6,10 +6,32 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import type { Game } from '@/lib/tcg'
 
-export type CarteFiltri = {
-  archetipi: string[]
-  tipi: string[]
-  sets: string[]
+type FilterField = 'archetype' | 'card_type'
+
+// Un'opzione di chip: `label` è ciò che si vede, `value` ciò che finisce nella
+// query, `match` decide se filtrare per uguaglianza esatta o `ilike`.
+type ChipOption = {
+  label: string
+  value: string
+  match: 'eq' | 'ilike'
+}
+
+type GameFilterConfig = {
+  attributeLabel: string
+  attributeField: FilterField
+  attributeOptions: ChipOption[]
+  attributeAutocomplete: boolean
+  typeLabel: string
+  typeField: FilterField
+  typeOptions: ChipOption[]
+  typeAutocomplete: boolean
+}
+
+// Filtro attivo applicato alla query della griglia.
+type ActiveFilter = {
+  field: FilterField
+  value: string
+  match: 'eq' | 'ilike'
 }
 
 type CardResult = {
@@ -24,16 +46,89 @@ type CardResult = {
 
 type CarteClientProps = {
   game: Game
-  filtri: CarteFiltri
 }
 
 const PAGE_SIZE = 48
 
-const FILTER_LABELS: Record<Game, { archetipo: string; tipo: string; set: string }> = {
-  yugioh: { archetipo: 'Archetipo', tipo: 'Tipo carta', set: 'Set' },
-  pokemon: { archetipo: 'Tipo elemento', tipo: 'Categoria', set: 'Set' },
-  one_piece: { archetipo: 'Colore', tipo: 'Tipo carta', set: 'Set' },
-  magic: { archetipo: 'Colore', tipo: 'Tipo carta', set: 'Set' },
+function eqOptions(values: string[]): ChipOption[] {
+  return values.map((value) => ({ label: value, value, match: 'eq' }))
+}
+
+function ilikeOptions(values: string[]): ChipOption[] {
+  return values.map((value) => ({ label: value, value, match: 'ilike' }))
+}
+
+// Per Yu-Gi-Oh! i tipi carta nel DB sono compositi (es. "Effect Monster",
+// "Normal Monster", "Continuous Spell Card"): ogni chip filtra per `ilike` su
+// una parola chiave, con label italiana separata dal valore di ricerca.
+const YGO_TYPE_OPTIONS: ChipOption[] = [
+  { label: 'Mostro', value: 'Monster', match: 'ilike' },
+  { label: 'Spell', value: 'Spell', match: 'ilike' },
+  { label: 'Trappola', value: 'Trap', match: 'ilike' },
+  { label: 'Fusion', value: 'Fusion', match: 'ilike' },
+  { label: 'Synchro', value: 'Synchro', match: 'ilike' },
+  { label: 'XYZ', value: 'XYZ', match: 'ilike' },
+  { label: 'Link', value: 'Link', match: 'ilike' },
+  { label: 'Rituale', value: 'Ritual', match: 'ilike' },
+  { label: 'Pendulum', value: 'Pendulum', match: 'ilike' },
+  { label: 'Tuner', value: 'Tuner', match: 'ilike' },
+]
+
+const GAME_FILTERS: Record<Game, GameFilterConfig> = {
+  yugioh: {
+    attributeLabel: 'Archetipo',
+    attributeField: 'archetype',
+    attributeOptions: [],
+    attributeAutocomplete: true,
+    typeLabel: 'Tipo carta',
+    typeField: 'card_type',
+    typeOptions: YGO_TYPE_OPTIONS,
+    typeAutocomplete: false,
+  },
+  pokemon: {
+    attributeLabel: 'Tipo elemento',
+    attributeField: 'archetype',
+    attributeOptions: eqOptions([
+      'Colorless',
+      'Darkness',
+      'Dragon',
+      'Fairy',
+      'Fighting',
+      'Fire',
+      'Grass',
+      'Lightning',
+      'Metal',
+      'Psychic',
+      'Water',
+    ]),
+    attributeAutocomplete: false,
+    typeLabel: 'Tipo carta',
+    typeField: 'card_type',
+    typeOptions: eqOptions(['Pokémon', 'Trainer', 'Energy']),
+    typeAutocomplete: false,
+  },
+  one_piece: {
+    attributeLabel: 'Colore',
+    attributeField: 'archetype',
+    // I colori One Piece nel DB possono essere combinati ("Blue Black"): `ilike`
+    // così il chip "Blue" cattura anche le carte bicolore.
+    attributeOptions: ilikeOptions(['Black', 'Blue', 'Green', 'Purple', 'Red', 'Yellow']),
+    attributeAutocomplete: false,
+    typeLabel: 'Tipo carta',
+    typeField: 'card_type',
+    typeOptions: eqOptions(['Character', 'Event', 'Leader', 'Stage']),
+    typeAutocomplete: false,
+  },
+  magic: {
+    attributeLabel: 'Colore',
+    attributeField: 'archetype',
+    attributeOptions: ilikeOptions(['W', 'U', 'B', 'R', 'G', 'Multicolor', 'Colorless']),
+    attributeAutocomplete: false,
+    typeLabel: 'Tipo carta',
+    typeField: 'card_type',
+    typeOptions: [],
+    typeAutocomplete: true,
+  },
 }
 
 function truncateChip(value: string): string {
@@ -42,16 +137,16 @@ function truncateChip(value: string): string {
 
 function ChipSection({
   label,
-  values,
-  selected,
+  options,
+  selectedValue,
   onToggle,
 }: {
   label: string
-  values: string[]
-  selected: string | null
-  onToggle: (value: string) => void
+  options: ChipOption[]
+  selectedValue: string | null
+  onToggle: (option: ChipOption) => void
 }) {
-  if (values.length === 0) return null
+  if (options.length === 0) return null
 
   return (
     <div className="space-y-1.5">
@@ -59,15 +154,15 @@ function ChipSection({
         {label}
       </p>
       <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-x-visible">
-        {values.map((value) => {
-          const isSelected = selected === value
+        {options.map((option) => {
+          const isSelected = selectedValue === option.value
           return (
             <button
-              key={value}
+              key={option.value}
               type="button"
-              onClick={() => onToggle(value)}
+              onClick={() => onToggle(option)}
               aria-pressed={isSelected}
-              title={value}
+              title={option.label}
               className={[
                 'shrink-0 whitespace-nowrap rounded-[4px] border-2 px-3 py-1 font-sans text-xs font-medium transition-colors',
                 isSelected
@@ -75,11 +170,128 @@ function ChipSection({
                   : 'border-[#1A1A18] dark:border-[#3A3D38] bg-transparent text-muted-foreground hover:text-foreground',
               ].join(' ')}
             >
-              {truncateChip(value)}
+              {truncateChip(option.label)}
             </button>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function AutocompleteFilter({
+  game,
+  field,
+  label,
+  placeholder,
+  selected,
+  onSelect,
+  onClear,
+}: {
+  game: Game
+  field: FilterField
+  label: string
+  placeholder: string
+  selected: string | null
+  onSelect: (value: string) => void
+  onClear: () => void
+}) {
+  const [input, setInput] = useState('')
+  const [debounced, setDebounced] = useState('')
+  const [options, setOptions] = useState<string[]>([])
+  const [open, setOpen] = useState(false)
+
+  // Debounce 300ms sull'input dell'autocomplete.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(input.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [input])
+
+  useEffect(() => {
+    if (debounced.length < 2) {
+      setOptions([])
+      return
+    }
+
+    const controller = new AbortController()
+    const supabase = createClient()
+
+    void supabase
+      .from('cards')
+      .select(field)
+      .eq('game', game)
+      .ilike(field, `%${debounced}%`)
+      .not(field, 'is', null)
+      .limit(8)
+      .abortSignal(controller.signal)
+      .then(({ data, error }) => {
+        if (controller.signal.aborted || error) return
+        const rows = (data ?? []) as unknown as Record<FilterField, string | null>[]
+        const unique = new Set<string>()
+        for (const row of rows) {
+          const value = row[field]
+          if (value) unique.add(value)
+        }
+        setOptions([...unique].slice(0, 8))
+        setOpen(true)
+      })
+
+    return () => controller.abort()
+  }, [game, field, debounced])
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
+
+      {selected ? (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-pressed="true"
+          title={selected}
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[4px] border-2 border-[#1A1A18] bg-[#6DBE00] px-3 py-1 font-sans text-xs font-medium text-[#1A1A18] transition-colors dark:bg-[#9ADE00]"
+        >
+          {truncateChip(selected)}
+          <span aria-hidden="true">×</span>
+        </button>
+      ) : (
+        <div className="relative max-w-xs">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onFocus={() => {
+              if (options.length > 0) setOpen(true)
+            }}
+            onBlur={() => setTimeout(() => setOpen(false), 120)}
+            placeholder={placeholder}
+            aria-label={placeholder}
+            className="w-full rounded-[4px] border-2 border-[#1A1A18] bg-[#F2EDE3] px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground shadow-[2px_2px_0_#1A1A18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6DBE00] dark:border-[#3A3D38] dark:bg-[#1A1C19] dark:shadow-[2px_2px_0_#3A3D38] dark:focus-visible:ring-[#9ADE00]"
+          />
+          {open && options.length > 0 && (
+            <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-[4px] border-2 border-[#1A1A18] bg-[#F2EDE3] shadow-[2px_2px_0_#1A1A18] dark:border-[#3A3D38] dark:bg-[#1A1C19] dark:shadow-[2px_2px_0_#3A3D38]">
+              {options.map((option) => (
+                <li key={option}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      onSelect(option)
+                      setInput('')
+                      setOpen(false)
+                    }}
+                    className="block w-full px-3 py-2 text-left font-sans text-sm text-foreground transition-colors hover:bg-[#6DBE00] hover:text-[#1A1A18] dark:hover:bg-[#9ADE00]"
+                  >
+                    {option}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -96,18 +308,17 @@ function CardSkeleton() {
   )
 }
 
-export function CarteClient({ game, filtri }: CarteClientProps) {
+export function CarteClient({ game }: CarteClientProps) {
+  const config = GAME_FILTERS[game]
+
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [filtroArchetipo, setFiltroArchetipo] = useState<string | null>(null)
-  const [filtroTipo, setFiltroTipo] = useState<string | null>(null)
-  const [filtroSet, setFiltroSet] = useState<string | null>(null)
+  const [attributeFilter, setAttributeFilter] = useState<ActiveFilter | null>(null)
+  const [typeFilter, setTypeFilter] = useState<ActiveFilter | null>(null)
   const [results, setResults] = useState<CardResult[]>([])
   const [loading, setLoading] = useState(true)
   const [pagina, setPagina] = useState(0)
   const [hasMore, setHasMore] = useState(false)
-
-  const labels = FILTER_LABELS[game]
 
   // Debounce 300ms sulla query; al cambio si riparte da pagina 0.
   useEffect(() => {
@@ -135,9 +346,18 @@ export function CarteClient({ game, filtri }: CarteClientProps) {
       .range(pagina * PAGE_SIZE, pagina * PAGE_SIZE + PAGE_SIZE - 1)
 
     if (debouncedQuery.length >= 2) q = q.ilike('name', `%${debouncedQuery}%`)
-    if (filtroArchetipo) q = q.eq('archetype', filtroArchetipo)
-    if (filtroTipo) q = q.eq('card_type', filtroTipo)
-    if (filtroSet) q = q.eq('set_name', filtroSet)
+    if (attributeFilter) {
+      q =
+        attributeFilter.match === 'ilike'
+          ? q.ilike(attributeFilter.field, `%${attributeFilter.value}%`)
+          : q.eq(attributeFilter.field, attributeFilter.value)
+    }
+    if (typeFilter) {
+      q =
+        typeFilter.match === 'ilike'
+          ? q.ilike(typeFilter.field, `%${typeFilter.value}%`)
+          : q.eq(typeFilter.field, typeFilter.value)
+    }
 
     void q.abortSignal(controller.signal).then(({ data, error }) => {
       if (controller.signal.aborted) return
@@ -152,14 +372,43 @@ export function CarteClient({ game, filtri }: CarteClientProps) {
     })
 
     return () => controller.abort()
-  }, [game, debouncedQuery, filtroArchetipo, filtroTipo, filtroSet, pagina])
+  }, [game, debouncedQuery, attributeFilter, typeFilter, pagina])
 
-  function toggleFiltro(
-    setter: (value: string | null) => void,
-    current: string | null,
-    value: string,
-  ) {
-    setter(current === value ? null : value)
+  function toggleAttribute(option: ChipOption) {
+    setAttributeFilter((current) =>
+      current && current.value === option.value
+        ? null
+        : { field: config.attributeField, value: option.value, match: option.match },
+    )
+    setPagina(0)
+  }
+
+  function toggleType(option: ChipOption) {
+    setTypeFilter((current) =>
+      current && current.value === option.value
+        ? null
+        : { field: config.typeField, value: option.value, match: option.match },
+    )
+    setPagina(0)
+  }
+
+  function selectAttribute(value: string) {
+    setAttributeFilter({ field: config.attributeField, value, match: 'eq' })
+    setPagina(0)
+  }
+
+  function selectType(value: string) {
+    setTypeFilter({ field: config.typeField, value, match: 'eq' })
+    setPagina(0)
+  }
+
+  function clearAttribute() {
+    setAttributeFilter(null)
+    setPagina(0)
+  }
+
+  function clearType() {
+    setTypeFilter(null)
     setPagina(0)
   }
 
@@ -177,26 +426,45 @@ export function CarteClient({ game, filtri }: CarteClientProps) {
         className="w-full rounded-[4px] border-2 border-[#1A1A18] dark:border-[#3A3D38] bg-card px-4 py-3 font-sans text-sm text-foreground placeholder:text-muted-foreground shadow-[4px_4px_0_#1A1A18] dark:shadow-[4px_4px_0_#3A3D38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6DBE00] dark:focus-visible:ring-[#9ADE00]"
       />
 
-      {/* Filtri a chip */}
+      {/* Filtri */}
       <div className="space-y-4">
-        <ChipSection
-          label={labels.archetipo}
-          values={filtri.archetipi}
-          selected={filtroArchetipo}
-          onToggle={(value) => toggleFiltro(setFiltroArchetipo, filtroArchetipo, value)}
-        />
-        <ChipSection
-          label={labels.tipo}
-          values={filtri.tipi}
-          selected={filtroTipo}
-          onToggle={(value) => toggleFiltro(setFiltroTipo, filtroTipo, value)}
-        />
-        <ChipSection
-          label={labels.set}
-          values={filtri.sets}
-          selected={filtroSet}
-          onToggle={(value) => toggleFiltro(setFiltroSet, filtroSet, value)}
-        />
+        {config.attributeAutocomplete ? (
+          <AutocompleteFilter
+            game={game}
+            field={config.attributeField}
+            label={config.attributeLabel}
+            placeholder={`Cerca ${config.attributeLabel.toLowerCase()}...`}
+            selected={attributeFilter?.value ?? null}
+            onSelect={selectAttribute}
+            onClear={clearAttribute}
+          />
+        ) : (
+          <ChipSection
+            label={config.attributeLabel}
+            options={config.attributeOptions}
+            selectedValue={attributeFilter?.value ?? null}
+            onToggle={toggleAttribute}
+          />
+        )}
+
+        {config.typeAutocomplete ? (
+          <AutocompleteFilter
+            game={game}
+            field={config.typeField}
+            label={config.typeLabel}
+            placeholder={`Cerca ${config.typeLabel.toLowerCase()}...`}
+            selected={typeFilter?.value ?? null}
+            onSelect={selectType}
+            onClear={clearType}
+          />
+        ) : (
+          <ChipSection
+            label={config.typeLabel}
+            options={config.typeOptions}
+            selectedValue={typeFilter?.value ?? null}
+            onToggle={toggleType}
+          />
+        )}
       </div>
 
       {/* Risultati */}
