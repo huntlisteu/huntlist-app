@@ -1,5 +1,4 @@
 import type { MetadataRoute } from 'next'
-import { listCardSitemapUrls } from '@/lib/cardSitemap'
 
 const SITE_URL = 'https://www.huntlist.eu'
 
@@ -8,12 +7,12 @@ const SITE_URL = 'https://www.huntlist.eu'
  * le route autenticate/private reali dell'app; le pagine pubbliche (feed,
  * carte, dettaglio hunt, profili) restano indicizzabili.
  *
- * Async perche' enumera i chunk delle sitemap carta per gioco (numero di
- * chunk calcolato a runtime; Magic puo' superare un chunk).
+ * Dichiara due sole sitemap: l'indice delle pagine statiche (/sitemap.xml) e
+ * l'indice delle pagine carta (/cards/sitemap.xml), che a sua volta aggrega
+ * tutti i chunk per gioco. Prima i singoli chunk erano elencati qui uno per
+ * uno (con una query al DB): l'indice li sostituisce.
  */
-export default async function robots(): Promise<MetadataRoute.Robots> {
-  const cardSitemaps = await listCardSitemapUrls()
-
+export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
@@ -37,8 +36,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         ],
       },
     ],
-    sitemap: [`${SITE_URL}/sitemap.xml`, ...cardSitemaps],
+    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/cards/sitemap.xml`],
   }
 }
-
-export const revalidate = 86400

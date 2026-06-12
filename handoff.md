@@ -201,6 +201,30 @@ Sostituita la sitemap carte unica (superava i 50k URL/file di Google: solo Magic
 
 **Verifica (dev server, conteggi confrontati col DB):** Magic 4 chunk = 40k+40k+40k+26.666 = **146.666** ✓; Yu-Gi-Oh! 14.371 ✓; Pokémon 24.495 ✓; One Piece 3.290 ✓. `/robots.txt` lista `/sitemap.xml` + 7 chunk (1+1+1+4). Nessuna regressione sulle pagine dettaglio carta (`/cards/{game}/{slug}` → 200); `/cards/s` → 404 innocuo. `npm run typecheck` pulito, `npm run lint` invariato (stessi 3 errori preesistenti).
 
+### Sitemap index carte (2026-06-12)
+Search Console non riusciva a indicizzare le sitemap carta: i chunk per gioco (`/cards/s/{game}/sitemap/{id}.xml`) non avevano un indice che li aggregasse — `robots.txt` li elencava uno per uno.
+
+**File creati:**
+- `app/cards/sitemap.xml/route.ts` — route handler `GET` che restituisce un **sitemap index** XML su `/cards/sitemap.xml`, aggregando tutti i chunk per gioco. `Content-Type: application/xml`, `Cache-Control: public, max-age=86400, stale-while-revalidate=3600`, **nessun** `export const revalidate` (solo l'header). I conteggi chunk sono **hardcodati** in `GAME_CHUNKS` (`pokemon: 5, yugioh: 3, one_piece: 1, magic: 30` = 39 loc totali), tipizzato `Record<Game, number>` (aggiungere un gioco a `GAMES` forza un errore di compilazione finché non si aggiunge il conteggio)
+
+**File modificati:**
+- `app/robots.ts` — la lista sitemap passa dai singoli chunk (enumerati via `listCardSitemapUrls()` con query al DB) a **due soli riferimenti**: `/sitemap.xml` + `/cards/sitemap.xml`. Robots torna **sincrono** (rimossi l'`await listCardSitemapUrls()`, l'import e `export const revalidate = 86400`): non tocca più il DB
+
+**Decisione — conteggi hardcodati invece di `listCardSitemapUrls()`:** l'helper dinamico esiste ancora in `lib/cardSitemap.ts` e produce gli stessi URL, ma fa un `count` al DB per gioco. L'indice (e robots) **non devono** dipendere dal DB: le query su Magic (~146k righe) vanno in **statement timeout / 500** (visto live in questa stessa sessione sui filtri), e un indice che 500-a riporterebbe Search Console a fallire — esattamente il bug da risolvere. Il commento in `route.ts` lega `GAME_CHUNKS` a `SITEMAP_BATCH_SIZE` (5000): `chunk = ceil(carte_gioco / 5000)`, da aggiornare se il catalogo cresce. `listCardSitemapUrls()` resta nel file (ora non più usato) ma non è stato rimosso per non allargare lo scope.
+
+**Verifica (dev server):** `GET /cards/sitemap.xml` → 200, `application/xml`, header cache corretto, 39 `<loc>` (pokemon 5, yugioh 3, one_piece 1, magic 30), primo `pokemon/sitemap/0.xml`, ultimo `magic/sitemap/29.xml`. `GET /robots.txt` → 200 con esattamente 2 righe `Sitemap:`. `npm run typecheck` pulito, `npm run lint` invariato (stessi 3 errori preesistenti non correlati).
+
+### Vercel Analytics (2026-06-12)
+Integrato Vercel Web Analytics.
+
+**File modificati:**
+- `app/layout.tsx` — `import { Analytics } from "@vercel/analytics/next"` e `<Analytics />` dentro il `<body>` dopo i children (dopo `<PWARegister />`)
+- `package.json` — `@vercel/analytics ^2.0.1` (era già presente come dipendenza, nessuna reinstallazione necessaria)
+
+**Note:**
+- `npm run typecheck` pulito; pagina renderizza senza errori console
+- in locale `<Analytics />` non invia dati: Vercel Web Analytics raccoglie solo in produzione su Vercel (comportamento atteso). Per i dati reali serve che il progetto abbia **Analytics abilitato** nella dashboard Vercel
+
 ### Filtri catalogo riscritti — chip hardcodati + autocomplete (2026-06-12)
 I filtri di `/cards/[game]` caricavano al mount tutti i valori distinti di `archetype`/`card_type`/`set_name` dal DB (`fetchDistinct` con count + chunk da 1000 + cache TTL 1h): pesante e lento. Ora sono **statici** — la pagina carica istantaneamente senza fetch al mount.
 
@@ -304,8 +328,9 @@ Trigger rilevanti:
 /feed[/:path*]          → redirect 301 a /market[/:path*] (next.config.ts)
 /[game]/carte[/slug]    → redirect 301 diretto a /cards/... (next.config.ts)
 /sitemap.xml            → sitemap pagine statiche (app/sitemap.ts)
-/cards/sitemap.xml      → sitemap pagine carta, ~39k URL (app/cards/sitemap.ts, revalidate 24h)
-/robots.txt             → robots nativo con disallow route private (app/robots.ts)
+/cards/sitemap.xml      → sitemap INDEX delle carte: aggrega i 39 chunk per gioco (app/cards/sitemap.xml/route.ts)
+/cards/s/{game}/sitemap/{id}.xml → chunk sitemap per gioco (app/cards/s/{game}/sitemap.ts, revalidate 24h)
+/robots.txt             → robots nativo con disallow route private + 2 sitemap (app/robots.ts)
 /api/sync-cards         → GET, sync notturno carte (CRON_SECRET, ?game=yugioh|pokemon)
 ```
 

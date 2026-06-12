@@ -4,3 +4,5 @@ Problemi noti da risolvere prima o poi:
 - login su google dice "Continua su xeuqikkusciglevzbdsr.supabase.co"
 - alcuni redirect puntano ancora a /feed e non market (vedi landing)
 - se da vercel apro www.huntlist.eu o huntlist.eu da "ops qualcosa è andato storto"
+- alcune chips di magic non funzionano, e cambiare modo di cercare tipo carta (creature, artifact, etc)
+- ci sono tre errori preesistenti di cui non conosco la natura di cui Claude Code continua sempre a parlare
