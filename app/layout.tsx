@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { DM_Sans, Sora } from "next/font/google";
 
+import { Analytics } from "@vercel/analytics/next";
+
 import { ThemeProvider } from "@/components/brand/ThemeProvider";
 import PWARegister from "@/components/PWARegister";
 import "./globals.css";
@@ -53,6 +55,7 @@ export default function RootLayout({
           {children}
         </ThemeProvider>
         <PWARegister />
+        <Analytics />
       </body>
     </html>
   );
