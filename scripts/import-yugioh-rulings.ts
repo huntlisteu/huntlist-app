@@ -32,8 +32,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Sostituisce i placeholder <<konami_id>> usati da YGOResources per i
+// riferimenti ad altre carte con il nome della carta corrispondente.
+function resolveCardRefs(text: string, konamiMap: Map<number, string>): string {
+  return text.replace(/<<(\d+)>>/g, (_, id) => {
+    return konamiMap.get(Number(id)) ?? `[Carta #${id}]`
+  })
+}
+
 // Tiene solo le lingue europee (en/it/de/fr/es/pt), scartando ja/ko/cn/ae.
-function extractRulingData(response: YGOResourcesResponse): RulingData | null {
+function extractRulingData(
+  response: YGOResourcesResponse,
+  konamiMap: Map<number, string>,
+): RulingData | null {
   const entries = response.faqData?.entries
   if (!entries) return null
 
@@ -43,7 +54,7 @@ function extractRulingData(response: YGOResourcesResponse): RulingData | null {
       const filtered: RulingEntry = {}
       for (const lang of RULING_LANGS) {
         const value = entry[lang]
-        if (value !== undefined) filtered[lang] = value
+        if (value !== undefined) filtered[lang] = resolveCardRefs(value, konamiMap)
       }
       return filtered
     })
@@ -74,7 +85,11 @@ type ProcessResult = {
   error: boolean
 }
 
-async function processCard(supabase: SupabaseClient, card: CardRow): Promise<ProcessResult> {
+async function processCard(
+  supabase: SupabaseClient,
+  card: CardRow,
+  konamiMap: Map<number, string>,
+): Promise<ProcessResult> {
   let rulingData: RulingData | null = null
   let effectData: EffectData | null = null
   let error = false
@@ -83,7 +98,7 @@ async function processCard(supabase: SupabaseClient, card: CardRow): Promise<Pro
     const response = await fetch(`https://db.ygoresources.com/data/card/${card.konami_id}`)
     if (response.ok) {
       const json = (await response.json()) as YGOResourcesResponse
-      rulingData = extractRulingData(json)
+      rulingData = extractRulingData(json, konamiMap)
       effectData = extractEffectData(json)
     } else if (response.status !== 404) {
       console.error(
@@ -108,6 +123,30 @@ async function processCard(supabase: SupabaseClient, card: CardRow): Promise<Pro
   }
 
   return { updated: !updateError, hasRuling: rulingData !== null, hasEffect: effectData !== null, error }
+}
+
+async function fetchKonamiIdToNameMap(supabase: SupabaseClient): Promise<Map<number, string>> {
+  const map = new Map<number, string>()
+  const CHUNK = 1000
+  let from = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('konami_id, name')
+      .eq('game', 'yugioh')
+      .not('konami_id', 'is', null)
+      .range(from, from + CHUNK - 1)
+
+    if (error || !data || data.length === 0) break
+    for (const row of data) {
+      if (row.konami_id) map.set(row.konami_id as number, row.name as string)
+    }
+    if (data.length < CHUNK) break
+    from += CHUNK
+  }
+
+  return map
 }
 
 async function fetchCardsWithKonamiId(supabase: SupabaseClient): Promise<CardRow[]> {
@@ -162,6 +201,10 @@ async function main() {
   const cards = await fetchCardsWithKonamiId(supabase)
   console.log(`${cards.length} carte da processare.`)
 
+  console.log('Costruendo mappa konami_id -> nome carta...')
+  const konamiMap = await fetchKonamiIdToNameMap(supabase)
+  console.log(`${konamiMap.size} carte in mappa.`)
+
   let processed = 0
   let updated = 0
   let withRulings = 0
@@ -170,7 +213,7 @@ async function main() {
 
   for (let i = 0; i < cards.length; i += CONCURRENCY) {
     const batch = cards.slice(i, i + CONCURRENCY)
-    const results = await Promise.all(batch.map((card) => processCard(supabase, card)))
+    const results = await Promise.all(batch.map((card) => processCard(supabase, card, konamiMap)))
 
     for (const result of results) {
       processed++
