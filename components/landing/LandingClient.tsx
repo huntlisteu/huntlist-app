@@ -86,7 +86,7 @@ function pressOut(el: HTMLElement, shadow = "4px 4px 0px var(--hl-border)") {
 export default function LandingClient() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>("it");
 
   useEffect(() => setMounted(true), []);
 
