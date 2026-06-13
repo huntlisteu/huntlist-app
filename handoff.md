@@ -2,7 +2,17 @@
 
 > Aggiornato il 2026-06-13. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
 >
-> **Ultima sessione (2026-06-13, notte 4): miniature stack market ingrandite a 64px.**
+> **Ultima sessione (2026-06-13, notte 6): rinomina Feed→Market e riordino bottom nav mobile.**
+> - **`components/layout/AppNavbar.tsx`**: etichetta del link desktop `/market` cambiata da "Feed" a "Market" (link e `isActive` invariati).
+> - **`components/layout/BottomNav.tsx`**: tab `/market` rinominato "Feed" → "Market" (testo e `aria-label`, icona `IconFeed` invariata). Nuovo ordine dei tab: Market - Carte - Dashboard - **+** (Nuova Hunt). Il bottone "+" (elevato, stile CTA verde con shadow neobrutalist) è stato spostato dalla terza posizione all'estrema destra; markup/stile/comportamento del bottone invariati, solo riposizionato.
+> - **Altri riferimenti**: cercato "Feed" come testo visibile in tutti i componenti — gli unici match restanti sono nomi interni non mostrati all'utente (`FeedHunt`, `IconFeed`, `getFeedHunts`, `FormFeedback`, un commento) e non sono in componenti di navigazione, quindi non modificati.
+> - **Verifica**: `npm run typecheck` e `npm run lint` puliti. Creata temporaneamente `app/dev-preview-nav/page.tsx` (renderizza `AppNavbar`/`BottomNav` con `isLoggedIn=true` e profilo mock, per bypassare l'auth) — verificata in preview: desktop (1280px, light) mostra "Market" nella navbar; mobile (375px, dark) mostra la bottom nav nell'ordine Market - Carte - Dashboard - **+**, con "+" elevato a destra. Pagina di preview rimossa a fine sessione.
+>
+> **Sessione precedente (2026-06-13, notte 5): label conteggio carte in HuntFeedCard.**
+> - **`components/hunts/HuntFeedCard.tsx`**: rimossa la costante `cardLabel` (logica singolare/plurale "1 carta cercata" / "N carte cercate"). Il testo accanto al pallino col numero è ora sempre fisso `"carte in lista"` — il conteggio resta solo nel pallino (es. `(2)` + "carte in lista"). Nessun'altra modifica.
+> - **Verifica**: `npm run typecheck` e `npm run lint` puliti.
+>
+> **Sessione precedente (2026-06-13, notte 4): miniature stack market ingrandite a 64px.**
 > - **`components/hunts/HuntFeedCard.tsx`**: `CardImageStack` — miniature da `h-12 w-12` (48px) a `h-16 w-16` (64px), proporzione 1:1 invariata (era già `object-cover` quadrato). Overlap reso responsive: `-ml-8` (32px) su mobile, `sm:-ml-4` (16px) da 640px in su — a 64px con `-ml-4` ovunque lo stack di 5 carte + badge misura 304px e sfora il contenuto della card sui viewport più stretti (320px ≈ 240px disponibili dentro `CardContent`); con `-ml-8` su mobile lo stack scende a 224px e rientra. Stesso trattamento (dimensione + overlap responsive) applicato al badge `+N`, bordo 2px e ombra offset invariati.
 > - **Verifica**: `npm run typecheck` e `npm run lint` puliti. Creata temporaneamente `app/dev-preview-feed-card/page.tsx` (3 Hunt mock: 5 immagini + `+3`, nessuna immagine, 2 immagini) per bypassare l'assenza di Hunt `open` nel DB; verificata in preview a 320px (mobile, dark) e desktop (light) — stack leggibile, badge `+3` non tagliato, niente overflow dalla card in nessun caso, fallback senza stack invariato. Pagina di preview rimossa a fine sessione.
 > - **Nota debito**: invariata — dipende da `hunt_cards.image_url` (non in `0001_init.sql`), vedi sessione precedente.

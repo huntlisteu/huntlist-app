@@ -119,7 +119,7 @@ export function AppNavbar({ isLoggedIn, profile }: AppNavbarProps) {
           {isLoggedIn && (
             <>
               <NavLink href="/market" active={isActive("/market")}>
-                Feed
+                Market
               </NavLink>
               <NavLink href="/dashboard" active={isActive("/dashboard")}>
                 Dashboard

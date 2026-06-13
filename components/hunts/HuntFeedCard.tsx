@@ -64,9 +64,6 @@ export function HuntFeedCard({ hunt }: HuntFeedCardProps) {
     ? `@${hunt.buyer_username}`
     : hunt.buyer_display_name;
 
-  const cardLabel =
-    hunt.card_count === 1 ? "1 carta cercata" : `${hunt.card_count} carte cercate`;
-
   return (
     <Link href={`/hunts/${hunt.id}`} className="group block h-full">
       <Card className="flex h-full flex-col transition-colors duration-150 group-hover:border-primary">
@@ -97,7 +94,7 @@ export function HuntFeedCard({ hunt }: HuntFeedCardProps) {
             >
               {hunt.card_count}
             </span>
-            {cardLabel}
+            carte in lista
           </p>
         </CardContent>
 

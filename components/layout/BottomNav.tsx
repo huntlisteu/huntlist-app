@@ -106,10 +106,10 @@ export function BottomNav() {
         "bg-[#F2EDE3] dark:bg-[#111210]",
       ].join(" ")}
     >
-      {/* Feed */}
-      <Link href="/market" className={tabCls("/market")} aria-label="Feed">
+      {/* Market */}
+      <Link href="/market" className={tabCls("/market")} aria-label="Market">
         <IconFeed />
-        <span>Feed</span>
+        <span>Market</span>
       </Link>
 
       {/* Carte */}
@@ -118,7 +118,17 @@ export function BottomNav() {
         <span>Carte</span>
       </Link>
 
-      {/* Nuova Hunt — bottone centrale elevato */}
+      {/* Dashboard */}
+      <Link
+        href="/dashboard"
+        className={tabCls("/dashboard")}
+        aria-label="Dashboard"
+      >
+        <IconDashboard />
+        <span>Dashboard</span>
+      </Link>
+
+      {/* Nuova Hunt — bottone elevato */}
       <div className="flex flex-1 items-center justify-center">
         <Link
           href="/hunts/new"
@@ -136,16 +146,6 @@ export function BottomNav() {
           <IconPlus />
         </Link>
       </div>
-
-      {/* Dashboard */}
-      <Link
-        href="/dashboard"
-        className={tabCls("/dashboard")}
-        aria-label="Dashboard"
-      >
-        <IconDashboard />
-        <span>Dashboard</span>
-      </Link>
     </nav>
   );
 }
