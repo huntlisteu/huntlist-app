@@ -43,13 +43,13 @@ function CardImageStack({
           key={`${url}-${i}`}
           src={url}
           alt=""
-          className={`h-12 w-12 shrink-0 rounded-[4px] border-2 border-[#1A1A18] bg-card object-cover shadow-[2px_2px_0px_#1A1A18] dark:border-[#3A3D38] dark:shadow-[2px_2px_0px_#3A3D38] ${STACK_ROTATIONS[i % STACK_ROTATIONS.length]} ${i > 0 ? "-ml-4" : ""}`}
+          className={`h-16 w-16 shrink-0 rounded-[4px] border-2 border-[#1A1A18] bg-card object-cover shadow-[2px_2px_0px_#1A1A18] dark:border-[#3A3D38] dark:shadow-[2px_2px_0px_#3A3D38] ${STACK_ROTATIONS[i % STACK_ROTATIONS.length]} ${i > 0 ? "-ml-8 sm:-ml-4" : ""}`}
           style={{ zIndex: i }}
         />
       ))}
       {extraCount > 0 ? (
         <span
-          className="-ml-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] border-2 border-[#1A1A18] bg-secondary text-sm font-semibold text-secondary-foreground shadow-[2px_2px_0px_#1A1A18] dark:border-[#3A3D38] dark:shadow-[2px_2px_0px_#3A3D38]"
+          className="-ml-8 flex h-16 w-16 shrink-0 items-center justify-center rounded-[4px] border-2 border-[#1A1A18] bg-secondary text-sm font-semibold text-secondary-foreground shadow-[2px_2px_0px_#1A1A18] sm:-ml-4 dark:border-[#3A3D38] dark:shadow-[2px_2px_0px_#3A3D38]"
           style={{ zIndex: images.length }}
         >
           +{extraCount}

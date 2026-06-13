@@ -17,3 +17,4 @@
 
 - **Login Google mostra dominio Supabase** — il popup dice "Continua su xeuqikkusciglevzbdsr.supabase.co". Comportamento standard di Google OAuth con Supabase, risolvibile solo con OAuth custom (non vale la pena).
 - **3 errori preesistenti di lint** — Claude Code li menziona ma non ne è nota la natura. Da investigare con `npm run lint` e documentare qui. (Risolto)
+- entrando direttamente su huntlist.eu/market non carica le hunt finchè non cambio filtro, dobbiamo fare audit di tutte le call al database e della gestione dei dati al caricamento del sito e alle cache
