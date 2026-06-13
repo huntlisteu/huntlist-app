@@ -39,6 +39,7 @@ export type FeedHunt = {
   game: Game;
   created_at: string;
   card_count: number;
+  card_images: string[];
   buyer_username: string | null;
   buyer_display_name: string;
 };
@@ -55,8 +56,11 @@ type RawFeedHunt = {
   game: Game;
   created_at: string;
   profiles: { username: string | null; display_name: string } | null;
-  hunt_cards: { id: string }[];
+  hunt_cards: { id: string; image_url: string | null }[];
 };
+
+/** Numero massimo di miniature carta mostrate nello stack della HuntFeedCard. */
+const FEED_CARD_IMAGES_LIMIT = 5;
 
 /**
  * Restituisce una pagina di Hunt aperte, ordinate per data di creazione
@@ -79,7 +83,7 @@ export async function getFeedHunts(opts?: {
   let query = supabase
     .from("hunts")
     .select(
-      "id, title, game, created_at, profiles!buyer_id(username, display_name), hunt_cards!hunt_id(id)",
+      "id, title, game, created_at, profiles!buyer_id(username, display_name), hunt_cards!hunt_id(id, image_url)",
     )
     .eq("status", "open")
     .order("created_at", { ascending: false })
@@ -105,6 +109,12 @@ export async function getFeedHunts(opts?: {
     game: row.game,
     created_at: row.created_at,
     card_count: Array.isArray(row.hunt_cards) ? row.hunt_cards.length : 0,
+    card_images: Array.isArray(row.hunt_cards)
+      ? row.hunt_cards
+          .map((c) => c.image_url)
+          .filter((u): u is string => !!u)
+          .slice(0, FEED_CARD_IMAGES_LIMIT)
+      : [],
     buyer_username: row.profiles?.username ?? null,
     buyer_display_name: row.profiles?.display_name ?? "Utente",
   }));

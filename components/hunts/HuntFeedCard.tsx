@@ -23,6 +23,42 @@ interface HuntFeedCardProps {
   hunt: FeedHunt;
 }
 
+/** Rotazioni alternate per l'effetto "ventaglio" delle miniature impilate. */
+const STACK_ROTATIONS = ["-rotate-6", "rotate-3", "-rotate-3", "rotate-6", "-rotate-2"];
+
+/** Stack di miniature carta sovrapposte (effetto pila di carte fisiche). */
+function CardImageStack({
+  images,
+  cardCount,
+}: {
+  images: string[];
+  cardCount: number;
+}) {
+  const extraCount = cardCount - images.length;
+
+  return (
+    <div className="mb-3 flex items-center" aria-hidden="true">
+      {images.map((url, i) => (
+        <img
+          key={`${url}-${i}`}
+          src={url}
+          alt=""
+          className={`h-12 w-12 shrink-0 rounded-[4px] border-2 border-[#1A1A18] bg-card object-cover shadow-[2px_2px_0px_#1A1A18] dark:border-[#3A3D38] dark:shadow-[2px_2px_0px_#3A3D38] ${STACK_ROTATIONS[i % STACK_ROTATIONS.length]} ${i > 0 ? "-ml-4" : ""}`}
+          style={{ zIndex: i }}
+        />
+      ))}
+      {extraCount > 0 ? (
+        <span
+          className="-ml-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] border-2 border-[#1A1A18] bg-secondary text-sm font-semibold text-secondary-foreground shadow-[2px_2px_0px_#1A1A18] dark:border-[#3A3D38] dark:shadow-[2px_2px_0px_#3A3D38]"
+          style={{ zIndex: images.length }}
+        >
+          +{extraCount}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function HuntFeedCard({ hunt }: HuntFeedCardProps) {
   const handle = hunt.buyer_username
     ? `@${hunt.buyer_username}`
@@ -49,6 +85,10 @@ export function HuntFeedCard({ hunt }: HuntFeedCardProps) {
         </CardHeader>
 
         <CardContent className="flex-1 pb-3">
+          {hunt.card_images.length > 0 ? (
+            <CardImageStack images={hunt.card_images} cardCount={hunt.card_count} />
+          ) : null}
+
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             {/* Icona carte: semplice cerchio con numero */}
             <span

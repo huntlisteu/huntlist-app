@@ -2,7 +2,13 @@
 
 > Aggiornato il 2026-06-13. Leggi CLAUDE.md per convenzioni, stack e regole non negoziabili.
 >
-> **Ultima sessione (2026-06-13, notte 2): autocomplete carte collegato a HuntForm.**
+> **Ultima sessione (2026-06-13, notte 3): stack miniature carte nel market feed.**
+> - **`lib/hunts.ts`**: `getFeedHunts()` — la select ora include `hunt_cards!hunt_id(id, image_url)` (era solo `id`). `RawFeedHunt.hunt_cards` tipizzato come `{ id: string; image_url: string | null }[]`. Nuova costante `FEED_CARD_IMAGES_LIMIT = 5`. Il tipo `FeedHunt` ha un nuovo campo `card_images: string[]`, calcolato mappando `hunt_cards` → `image_url`, filtrando i `null` e troncando a 5 (`.slice(0, FEED_CARD_IMAGES_LIMIT)`). `card_count` resta il conteggio totale delle righe `hunt_cards` (con o senza immagine) — invariato. Paginazione cursor-based (`FEED_PAGE_SIZE = 12`, fetch +1, `nextCursor` su `created_at`) non toccata.
+> - **`components/hunts/HuntFeedCard.tsx`**: nuovo componente interno `CardImageStack({ images, cardCount })` — stack "a ventaglio" di miniature 48×48 (`<img>`, non `next/image`) con `border-2 border-[#1A1A18] dark:border-[#3A3D38]`, `shadow-[2px_2px_0px_...]`, rotazioni alternate (`STACK_ROTATIONS`: -6/3/-3/6/-2 gradi) e overlap via `-ml-4` (z-index crescente). Se `card_count > card_images.length` (es. carte senza `image_url` o oltre il limite di 5), badge finale `+N` con lo stesso stile. Renderizzato in cima a `CardContent`, solo se `hunt.card_images.length > 0` (altrimenti nessuna modifica — resta solo il conteggio testuale "N carte cercate" come prima).
+> - **Verifica**: `npm run typecheck` e `npm run lint` puliti (unico errore residuo: `.next/dev/types/routes.d.ts`, pre-esistente, gitignored). Riavviato il dev server e riaperto `/market` in preview: pagina renderizzata senza errori console, dark mode ok. **Nota**: al momento della verifica non c'erano Hunt `open` nel DB ("Nessuna Hunt aperta"), quindi lo stack non è stato verificato visivamente con dati reali — la logica (mapping, limite 5, badge `+N`, fallback senza stack) è stata validata a livello di codice/tipi. Da riverificare a vista appena esiste almeno una Hunt open con `hunt_cards.image_url` popolato (es. una creata con l'autocomplete della sessione precedente).
+> - **Nota debito**: questa feature assume che `hunt_cards.image_url` esista (stesso debito già annotato per la sessione precedente — colonna non presente in `0001_init.sql`).
+>
+> **Sessione precedente (2026-06-13, notte 2): autocomplete carte collegato a HuntForm.**
 > - **`components/hunts/HuntForm.tsx`**:
 >   - `CardDraft` esteso con `card_id?: string | null` e `image_url?: string | null` (sempre inizializzati a `null` in `emptyCard()` e nell'import CSV).
 >   - Il `<select>` "Gioco" è ora **controllato** (`useState<Game | "">`, era `defaultValue`): serve all'autocomplete per sapere su quale `game` filtrare.
