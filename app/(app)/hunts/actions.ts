@@ -39,6 +39,8 @@ function toCardRows(huntId: string, cards: HuntCardInput[]) {
     language: c.language,
     quantity: c.quantity,
     desired_condition: c.desired_condition,
+    card_id: c.card_id,
+    image_url: c.image_url,
   }));
 }
 
@@ -76,6 +78,8 @@ export async function createHunt(
         p_desired_condition: card.desired_condition ?? null,
         p_language: card.language ?? null,
         p_quantity: card.quantity,
+        p_card_id: card.card_id ?? null,
+        p_image_url: card.image_url ?? null,
       }),
     ),
   );

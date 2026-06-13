@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, type ChangeEvent } from "react";
+import { useActionState, useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
@@ -102,6 +102,16 @@ type CardDraft = {
   language: string;
   quantity: number;
   desired_condition: CardCondition | "";
+  card_id?: string | null;
+  image_url?: string | null;
+};
+
+/** Una voce di suggerimento restituita da `/api/cards/search`. */
+type CardSearchResult = {
+  id: string;
+  name: string;
+  image_url: string | null;
+  set_name: string | null;
 };
 
 function emptyCard(): CardDraft {
@@ -112,6 +122,8 @@ function emptyCard(): CardDraft {
     language: "",
     quantity: 1,
     desired_condition: "",
+    card_id: null,
+    image_url: null,
   };
 }
 
@@ -136,6 +148,10 @@ export function HuntForm({
   const [cards, setCards] = useState<CardDraft[]>(
     defaultCards && defaultCards.length > 0 ? defaultCards : [emptyCard()],
   );
+
+  // Tracciato in stato (oltre al <select> nativo) perche' l'autocomplete
+  // carte ha bisogno del gioco selezionato per filtrare i suggerimenti.
+  const [game, setGame] = useState<Game | "">(defaultHunt?.game ?? "");
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
@@ -180,6 +196,8 @@ export function HuntForm({
         language: "",
         quantity: p.quantity,
         desired_condition: "",
+        card_id: null,
+        image_url: null,
       }));
 
       setCards([...filledExisting, ...importedCards]);
@@ -228,6 +246,26 @@ export function HuntForm({
     );
   }
 
+  /** Modifica manuale del nome: il testo non corrisponde piu' a una carta del catalogo. */
+  function updateCardName(index: number, value: string) {
+    setCards((prev) =>
+      prev.map((c, i) =>
+        i === index ? { ...c, name: value, card_id: null, image_url: null } : c,
+      ),
+    );
+  }
+
+  /** Click su un suggerimento dell'autocomplete: aggancia nome, card_id e immagine. */
+  function selectCardSuggestion(index: number, suggestion: CardSearchResult) {
+    setCards((prev) =>
+      prev.map((c, i) =>
+        i === index
+          ? { ...c, name: suggestion.name, card_id: suggestion.id, image_url: suggestion.image_url }
+          : c,
+      ),
+    );
+  }
+
   // Snapshot serializzato delle carte per la Server Action (campo hidden).
   const cardsPayload = cards.map((c) => ({
     name: c.name,
@@ -236,6 +274,8 @@ export function HuntForm({
     language: c.language,
     quantity: c.quantity,
     desired_condition: c.desired_condition === "" ? null : c.desired_condition,
+    card_id: c.card_id ?? null,
+    image_url: c.image_url ?? null,
   }));
 
   const cancelHref =
@@ -313,7 +353,8 @@ export function HuntForm({
           <select
             id="game"
             name="game"
-            defaultValue={defaultHunt?.game ?? ""}
+            value={game}
+            onChange={(e) => setGame(e.target.value as Game)}
             required
             className={selectClass}
           >
@@ -433,18 +474,13 @@ export function HuntForm({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`card-name-${index}`}>Nome carta</Label>
-                  <Input
-                    id={`card-name-${index}`}
-                    type="text"
-                    value={card.name}
-                    onChange={(e) => updateCard(index, "name", e.target.value)}
-                    placeholder="Es. Charizard"
-                    maxLength={200}
-                    required
-                  />
-                </div>
+                <CardNameField
+                  index={index}
+                  card={card}
+                  game={game}
+                  onNameChange={updateCardName}
+                  onSelect={selectCardSuggestion}
+                />
 
                 <div className="space-y-1.5">
                   <Label htmlFor={`card-set-${index}`}>Set (opzionale)</Label>
@@ -566,5 +602,119 @@ export function HuntForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+const AUTOCOMPLETE_MIN_CHARS = 2;
+const AUTOCOMPLETE_DEBOUNCE_MS = 300;
+
+type CardNameFieldProps = {
+  index: number;
+  card: CardDraft;
+  game: Game | "";
+  onNameChange: (index: number, value: string) => void;
+  onSelect: (index: number, suggestion: CardSearchResult) => void;
+};
+
+/** Campo "Nome carta" con autocomplete dal catalogo (`/api/cards/search`), filtrato per gioco. */
+function CardNameField({ index, card, game, onNameChange, onSelect }: CardNameFieldProps) {
+  const [debouncedName, setDebouncedName] = useState(card.name);
+  const [options, setOptions] = useState<CardSearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedName(card.name.trim()), AUTOCOMPLETE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [card.name]);
+
+  useEffect(() => {
+    // Riga gia' agganciata a una carta del catalogo (selezionata dal dropdown):
+    // niente nuova ricerca finche' il nome non viene modificato a mano
+    // (`onNameChange` azzera `card_id`, vedi sotto).
+    if (!game || card.card_id || debouncedName.length < AUTOCOMPLETE_MIN_CHARS) {
+      setOptions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    fetch(`/api/cards/search?game=${game}&q=${encodeURIComponent(debouncedName)}`, {
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((json: { results?: CardSearchResult[] }) => {
+        setOptions(json.results ?? []);
+        setOpen(true);
+      })
+      .catch(() => {
+        // Richiesta annullata o errore di rete: ignorato, l'input resta usabile.
+      });
+
+    return () => controller.abort();
+  }, [game, debouncedName, card.card_id]);
+
+  return (
+    <div className="space-y-1.5 sm:col-span-2">
+      <Label htmlFor={`card-name-${index}`}>Nome carta</Label>
+      <div className="relative">
+        <Input
+          id={`card-name-${index}`}
+          type="text"
+          value={card.name}
+          onChange={(e) => onNameChange(index, e.target.value)}
+          onFocus={() => {
+            if (options.length > 0) setOpen(true);
+          }}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          placeholder="Es. Charizard"
+          maxLength={200}
+          autoComplete="off"
+          required
+        />
+
+        {open && options.length > 0 ? (
+          <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-[4px] border-2 border-[#1A1A18] bg-card shadow-[4px_4px_0px_#1A1A18] dark:border-[#3A3D38] dark:shadow-[4px_4px_0px_#3A3D38]">
+            {options.map((option) => (
+              <li key={option.id}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onSelect(index, option);
+                    setOptions([]);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:bg-accent hover:text-accent-foreground"
+                >
+                  {option.image_url ? (
+                    <img
+                      src={option.image_url}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-[4px] border-2 border-[#1A1A18] object-cover dark:border-[#3A3D38]"
+                    />
+                  ) : (
+                    <span className="h-10 w-10 shrink-0 rounded-[4px] border-2 border-[#1A1A18] bg-muted dark:border-[#3A3D38]" />
+                  )}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-sans text-sm font-medium">{option.name}</span>
+                    {option.set_name ? (
+                      <span className="truncate font-sans text-xs text-muted-foreground">
+                        {option.set_name}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      {!game ? (
+        <p className="text-xs text-muted-foreground">
+          Seleziona il gioco per i suggerimenti
+        </p>
+      ) : null}
+    </div>
   );
 }

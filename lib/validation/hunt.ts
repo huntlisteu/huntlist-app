@@ -31,6 +31,18 @@ const requiredText = (min: number, max: number, label: string) =>
       .max(max, `${label}: massimo ${max} caratteri`),
   );
 
+/** UUID opzionale: stringa vuota/assente -> null. Collega la carta al catalogo `cards`. */
+const nullableUuid = z.preprocess(
+  (v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null),
+  z.string().uuid("Card ID non valido").nullable(),
+);
+
+/** URL opzionale: stringa vuota/assente -> null. Immagine del catalogo `cards`. */
+const nullableUrl = z.preprocess(
+  (v) => (typeof v === "string" && v.trim().length > 0 ? v.trim() : null),
+  z.string().url("URL immagine non valido").max(2000).nullable(),
+);
+
 export const huntCardSchema = z.object({
   name: requiredText(1, 200, "Nome carta"),
   set_name: nullableText(120, "Set"),
@@ -45,6 +57,8 @@ export const huntCardSchema = z.object({
     (v) => (v === "" || v == null ? null : v),
     z.enum(CARD_CONDITIONS).nullable(),
   ),
+  card_id: nullableUuid,
+  image_url: nullableUrl,
 });
 
 export type HuntCardInput = z.infer<typeof huntCardSchema>;
