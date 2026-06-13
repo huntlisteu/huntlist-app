@@ -9,10 +9,9 @@ const SITE_URL = 'https://www.huntlist.eu'
  * (Next 16 non espone un indice nativo per quelle sitemap per-gioco). Search
  * Console scopre tutti i chunk da questo unico indice, dichiarato in robots.txt.
  *
- * I conteggi sono FISSI di proposito: l'equivalente dinamico e'
- * `listCardSitemapUrls()` in lib/cardSitemap.ts, ma qui l'indice NON deve
- * dipendere da una query al DB — un timeout su Magic (~146k righe) farebbe 500
- * l'indice e Search Console tornerebbe a fallire. Tenere allineati a
+ * I conteggi sono FISSI di proposito: l'indice NON deve dipendere da una
+ * query al DB — un errore su Magic (~146k righe) farebbe 500 l'indice e
+ * Search Console tornerebbe a fallire. Tenere allineati a
  * `SITEMAP_BATCH_SIZE` (5000) e al numero di carte per gioco:
  * chunk = ceil(carte_gioco / 5000). Aggiornare se il catalogo cresce.
  *

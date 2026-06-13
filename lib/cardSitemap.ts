@@ -1,13 +1,13 @@
 import type { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { GAMES, type Game } from '@/lib/tcg'
+import type { Game } from '@/lib/tcg'
 
 const SITE_URL = 'https://www.huntlist.eu'
 
 /**
  * Numero massimo di URL per file sitemap. Google ne ammette 50.000;
- * 40.000 lascia margine. Magic (~146k carte) richiede quindi piu' chunk,
- * Yu-Gi-Oh!/Pokemon/One Piece stanno in un solo chunk ciascuno.
+ * 5.000 lascia margine. Magic (~146k carte) richiede quindi piu' chunk,
+ * Yu-Gi-Oh!/Pokemon/One Piece stanno in pochi chunk ciascuno.
  *
  * Sitemap per gioco: 4 route concrete in `app/cards/s/{game}/sitemap.ts`,
  * ognuna col proprio `game` fissato. In Next 16 il loader delle metadata
@@ -17,7 +17,22 @@ const SITE_URL = 'https://www.huntlist.eu'
  * gioco rendere: il gioco va fissato staticamente file per file.
  */
 export const SITEMAP_BATCH_SIZE = 5000
+
+/**
+ * Dimensione pagina delle letture keyset: allineata al max-rows di
+ * PostgREST su Supabase (1000), oltre il quale le righe verrebbero troncate.
+ */
 const PAGE_SIZE = 1000
+const PAGE_RETRIES = 3
+
+/**
+ * TTL della memo in-process delle entry per gioco. Serve soprattutto al
+ * build/ISR: i 30 chunk Magic condividono la stessa lettura invece di
+ * rileggere ~146k righe a testa. A runtime ogni rigenerazione ISR parte
+ * tipicamente da un processo freddo, quindi il TTL conta poco; resta basso
+ * per non servire dati piu' vecchi della finestra di revalidate.
+ */
+const ENTRIES_TTL_MS = 60 * 60 * 1000
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -34,33 +49,155 @@ function adminClient() {
   })
 }
 
+type SitemapRow = {
+  slug: string
+  updated_at: string | null
+}
+
+/**
+ * Legge una pagina di slug con keyset pagination (`slug > afterSlug`),
+ * servita dall'indice UNIQUE `cards_game_slug_key (game, slug)`: costo
+ * O(log n) + PAGE_SIZE indipendentemente dalla profondita', al contrario
+ * dell'OFFSET usato in passato che su Magic (~146k righe) scansionava tutte
+ * le righe precedenti e incappava nello statement timeout di Postgres.
+ * `slug` e' unico per gioco, quindi l'ordinamento e' totale e nessuna riga
+ * viene saltata o duplicata tra le pagine.
+ *
+ * Con `onlyWithRuling` filtra le sole carte con `ruling_data` valorizzato
+ * (per gli URL `/ruling` di Yu-Gi-Oh!), senza mai scaricare il JSONB.
+ *
+ * Un errore transitorio viene ritentato; se persiste si lancia, cosi' la
+ * route fallisce invece di servire una sitemap monca (che ISR cache-erebbe).
+ */
+async function fetchSlugPage(
+  supabase: ReturnType<typeof adminClient>,
+  game: Game,
+  afterSlug: string | null,
+  onlyWithRuling: boolean,
+): Promise<SitemapRow[]> {
+  for (let attempt = 0; attempt < PAGE_RETRIES; attempt++) {
+    let query = supabase
+      .from('cards')
+      .select('slug, updated_at')
+      .eq('game', game)
+      .order('slug', { ascending: true })
+      .limit(PAGE_SIZE)
+
+    if (afterSlug !== null) query = query.gt('slug', afterSlug)
+    if (onlyWithRuling) query = query.not('ruling_data', 'is', null)
+
+    const { data, error } = await query
+
+    if (!error) return (data ?? []) as SitemapRow[]
+
+    if (attempt === PAGE_RETRIES - 1) {
+      throw new Error(
+        `Sitemap ${game}: lettura pagina dopo slug "${afterSlug ?? '(inizio)'}" fallita dopo ${PAGE_RETRIES} tentativi: ${error.message}`,
+      )
+    }
+
+    await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
+  }
+
+  return []
+}
+
+/** Legge tutte le righe (slug, updated_at) di un gioco via keyset. */
+async function fetchAllRows(
+  supabase: ReturnType<typeof adminClient>,
+  game: Game,
+  onlyWithRuling = false,
+): Promise<SitemapRow[]> {
+  const rows: SitemapRow[] = []
+  let afterSlug: string | null = null
+
+  while (true) {
+    const page = await fetchSlugPage(supabase, game, afterSlug, onlyWithRuling)
+    rows.push(...page)
+
+    const last = page[page.length - 1]
+    if (page.length < PAGE_SIZE || !last) break
+    afterSlug = last.slug
+  }
+
+  return rows
+}
+
+/**
+ * Costruisce TUTTE le entry sitemap di un gioco, in ordine di slug.
+ * Per Yu-Gi-Oh!, ogni carta con `ruling_data` aggiunge anche l'URL
+ * `/cards/yugioh/{slug}/ruling` subito dopo quello della carta.
+ */
+async function buildGameEntries(game: Game): Promise<MetadataRoute.Sitemap> {
+  const supabase = adminClient()
+  const rows = await fetchAllRows(supabase, game)
+  const rulingSlugs =
+    game === 'yugioh'
+      ? new Set((await fetchAllRows(supabase, game, true)).map((row) => row.slug))
+      : null
+
+  const entries: MetadataRoute.Sitemap = []
+  for (const card of rows) {
+    entries.push({
+      url: `${SITE_URL}/cards/${game}/${card.slug}`,
+      lastModified: card.updated_at ?? undefined,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    })
+
+    if (rulingSlugs?.has(card.slug)) {
+      entries.push({
+        url: `${SITE_URL}/cards/yugioh/${card.slug}/ruling`,
+        lastModified: card.updated_at ?? undefined,
+        changeFrequency: 'monthly',
+        priority: 0.6,
+      })
+    }
+  }
+
+  return entries
+}
+
+type EntriesCacheSlot = {
+  at: number
+  promise: Promise<MetadataRoute.Sitemap>
+}
+
+const entriesCache = new Map<Game, EntriesCacheSlot>()
+
+/**
+ * Entry sitemap di un gioco, memoizzate in-process: `generateGameSitemaps`
+ * e i singoli chunk di `buildGameSitemap` condividono una sola lettura dal
+ * DB. La promise viene cache-ata subito (non il risultato) cosi' anche le
+ * chiamate concorrenti durante il prerender si agganciano alla stessa
+ * lettura; in caso di errore lo slot viene rimosso e il chiamante successivo
+ * ritenta da zero.
+ */
+function loadGameEntries(game: Game): Promise<MetadataRoute.Sitemap> {
+  const cached = entriesCache.get(game)
+  if (cached && Date.now() - cached.at < ENTRIES_TTL_MS) return cached.promise
+
+  const slot: EntriesCacheSlot = { at: Date.now(), promise: buildGameEntries(game) }
+  entriesCache.set(game, slot)
+
+  slot.promise.catch(() => {
+    if (entriesCache.get(game) === slot) entriesCache.delete(game)
+  })
+
+  return slot.promise
+}
+
 /**
  * Calcola i chunk necessari per un gioco. Restituisce sempre almeno un chunk
  * (`{ id: 0 }`) cosi' la route esiste anche con catalogo vuoto.
  *
- * Per Yu-Gi-Oh!, ogni carta con `ruling_data` aggiunge anche l'URL
- * `/cards/yugioh/{slug}/ruling` (vedi buildGameSitemap), quindi il totale
- * di URL include anche il conteggio delle carte con ruling.
+ * Il conteggio deriva dalle stesse entry servite da `buildGameSitemap`
+ * (carte + eventuali URL ruling), quindi enumerazione e contenuto dei chunk
+ * sono sempre coerenti tra loro.
  */
 export async function generateGameSitemaps(game: Game): Promise<{ id: number }[]> {
-  const supabase = adminClient()
-  const { count } = await supabase
-    .from('cards')
-    .select('*', { count: 'exact', head: true })
-    .eq('game', game)
-
-  let total = count ?? 0
-
-  if (game === 'yugioh') {
-    const { count: rulingCount } = await supabase
-      .from('cards')
-      .select('*', { count: 'exact', head: true })
-      .eq('game', 'yugioh')
-      .not('ruling_data', 'is', null)
-    total += rulingCount ?? 0
-  }
-
-  const numSitemaps = Math.max(1, Math.ceil(total / SITEMAP_BATCH_SIZE))
+  const entries = await loadGameEntries(game)
+  const numSitemaps = Math.max(1, Math.ceil(entries.length / SITEMAP_BATCH_SIZE))
   return Array.from({ length: numSitemaps }, (_, i) => ({ id: i }))
 }
 
@@ -83,111 +220,14 @@ export async function resolveSitemapId(id: unknown): Promise<number> {
 }
 
 /**
- * URL di tutti i chunk sitemap per gioco, da dichiarare in robots.txt.
- * Next 16 NON espone un indice a `/cards/s/{game}/sitemap.xml` (404): sono
- * validi solo i chunk numerati `/cards/s/{game}/sitemap/{id}.xml`, quindi
- * robots deve elencarli uno per uno. La cardinalita' dei chunk e' calcolata
- * a runtime (Magic puo' averne piu' di uno).
- */
-export async function listCardSitemapUrls(): Promise<string[]> {
-  const perGame = await Promise.all(
-    GAMES.map(async (game) => {
-      const chunks = await generateGameSitemaps(game)
-      return chunks.map(({ id }) => `${SITE_URL}/cards/s/${game}/sitemap/${id}.xml`)
-    }),
-  )
-  return perGame.flat()
-}
-
-type CardRow = {
-  slug: string
-  updated_at: string | null
-  ruling_data?: unknown
-}
-
-/**
- * Costruisce le entry della sitemap per un gioco e un chunk.
- * Pagina a `PAGE_SIZE` con ordinamento totale su `slug` (unico per gioco):
- * senza un ordine totale, `range` puo' saltare o duplicare righe.
+ * Entry della sitemap per un gioco e un chunk: slice di SITEMAP_BATCH_SIZE
+ * entry dall'elenco completo memoizzato. A differenza della vecchia versione
+ * (range numerico sulle sole carte), i chunk partizionano l'elenco gia'
+ * comprensivo degli URL ruling: nessun chunk supera SITEMAP_BATCH_SIZE URL
+ * e nessun chunk enumerato risulta vuoto.
  */
 export async function buildGameSitemap(game: Game, id: number): Promise<MetadataRoute.Sitemap> {
-  const supabase = adminClient()
+  const entries = await loadGameEntries(game)
   const from = id * SITEMAP_BATCH_SIZE
-  const to = from + SITEMAP_BATCH_SIZE - 1
-
-  const entries: MetadataRoute.Sitemap = []
-  let offset = from
-
-  while (offset <= to) {
-    const upper = Math.min(offset + PAGE_SIZE - 1, to)
-    const rows = await fetchPage(supabase, game, offset, upper)
-    if (rows.length === 0) break
-
-    for (const card of rows) {
-      entries.push({
-        url: `${SITE_URL}/cards/${game}/${card.slug}`,
-        lastModified: card.updated_at ?? undefined,
-        changeFrequency: 'monthly',
-        priority: 0.7,
-      })
-
-      if (game === 'yugioh' && card.ruling_data !== null && card.ruling_data !== undefined) {
-        entries.push({
-          url: `${SITE_URL}/cards/yugioh/${card.slug}/ruling`,
-          lastModified: card.updated_at ?? undefined,
-          changeFrequency: 'monthly',
-          priority: 0.6,
-        })
-      }
-    }
-
-    if (rows.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
-  }
-
-  return entries
-}
-
-/**
- * Legge una pagina di carte con retry. Su tabelle grandi (Magic ~146k) le
- * query con offset profondo possono incappare nello statement timeout di
- * Postgres: in quel caso `data` e' null e `error` valorizzato. NON va trattato
- * come "fine righe" (produrrebbe un chunk parziale, poi cache-ato 24h da ISR):
- * si ritenta e, se l'errore persiste, si lancia cosi' la route fallisce invece
- * di servire una sitemap monca.
- */
-async function fetchPage(
-  supabase: ReturnType<typeof adminClient>,
-  game: Game,
-  from: number,
-  to: number,
-  retries = 3,
-): Promise<CardRow[]> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    const query = supabase
-      .from('cards')
-      .select(game === 'yugioh' ? 'slug, updated_at, ruling_data' : 'slug, updated_at')
-      .eq('game', game)
-      .order('slug', { ascending: true })
-      .range(from, to)
-
-    const { data, error } = await query
-
-    if (!error) {
-      // Il select è scelto a runtime in base a `game`, quindi Supabase non
-      // riesce a tipizzare staticamente il risultato: il cast via `unknown`
-      // riflette le colonne richieste sopra (CardRow.ruling_data è opzionale).
-      return (data ?? []) as unknown as CardRow[]
-    }
-
-    if (attempt === retries - 1) {
-      throw new Error(
-        `Sitemap ${game}: lettura righe ${from}-${to} fallita dopo ${retries} tentativi: ${error.message}`,
-      )
-    }
-
-    await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
-  }
-
-  return []
+  return entries.slice(from, from + SITEMAP_BATCH_SIZE)
 }
